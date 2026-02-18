@@ -174,7 +174,7 @@ function readFileAsText(file) {
 // EXERCISE LIST RENDERING
 // ============================================================
 async function renderImportedExercises() {
-  document.getElementById('actionRow').style.display = exercises.length > 0 ? 'flex' : 'none';
+  document.getElementById('actionRow').style.display = exercises.length > 0 ? '' : 'none';
 
   const imgMap = await ImageStore.getAll();
 
@@ -191,11 +191,11 @@ async function renderImportedExercises() {
   const countLabel = filtered.length < exercises.length
     ? `${filtered.length} / ${exercises.length}`
     : `${exercises.length}`;
-  const countRow = `
+  const countRow = exercises.length > 0 ? `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span style="font-size:11px;color:var(--text-light)">${countLabel}</span>
       <button class="btn btn-danger btn-sm" onclick="removeAllExercises()">Alle entfernen</button>
-    </div>`;
+    </div>` : '';
   list.innerHTML = countRow + filtered.map(ex => {
     const hasImg = !!imgMap[ex.id];
     return `
@@ -208,7 +208,7 @@ async function renderImportedExercises() {
         <div class="ex-name">${esc(ex.name)}</div>
         ${ex.description ? `<div class="ex-desc">${esc(ex.description)}</div>` : ''}
         <div class="ex-meta">
-          ${ex.mode ? ex.mode : ''}
+          ${modeLabel(ex.mode)}
           ${ex.tools ? ' | ' + ex.tools : ''}
           ${ex.muscleGroup ? ' | ' + ex.muscleGroup : ''}
         </div>
@@ -313,7 +313,7 @@ async function editExercise(id) {
   document.getElementById('editId').value = ex.id;
   document.getElementById('addName').value = ex.name;
   document.getElementById('addDesc').value = ex.description;
-  document.getElementById('addMode').value = ex.mode || 'kein wechsel';
+  document.getElementById('addMode').value = ex.mode || 'no_switch';
   document.getElementById('addTools').value = ex.tools;
   document.getElementById('addMuscle').value = ex.muscleGroup;
   document.getElementById('formTitle').textContent = 'Übung bearbeiten (#' + ex.id + ')';
@@ -364,6 +364,53 @@ function saveExercises() {
 // ============================================================
 // IMPORT / EXPORT DIALOGS
 // ============================================================
+function showImportHelp() {
+  const csvExample = `id,name,description,mode,tools,muscleGroup
+1,Liegestütze,Arme schulterbreit,no_switch,,Brust
+2,Ausfallschritt,Links/rechts wechseln,halftime_switch,,Beine
+3,Schulterdrücken,,no_switch,Kettlebell,Schulter`;
+
+  const td = 'padding:4px 8px;border:1px solid var(--border)';
+  const th = td + ';font-weight:600;background:var(--bg)';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-box" style="max-width:480px;max-height:80vh;overflow-y:auto">
+      <p style="font-weight:600;margin-bottom:12px;font-size:16px">CSV-Import Format</p>
+      <p style="font-size:13px;margin-bottom:8px">Erste Zeile = Header, danach eine Zeile pro Übung:</p>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+        <tr><th style="${th}">Spalte</th><th style="${th}">Typ</th><th style="${th}">Beschreibung</th></tr>
+        <tr><td style="${td}">id</td><td style="${td}">Zahl</td><td style="${td}">Eindeutige Nummer</td></tr>
+        <tr><td style="${td}">name</td><td style="${td}">Text</td><td style="${td}">Name der Übung *</td></tr>
+        <tr><td style="${td}">description</td><td style="${td}">Text</td><td style="${td}">Beschreibung (optional)</td></tr>
+        <tr><td style="${td}">mode</td><td style="${td}"><code style="font-size:11px">no_switch</code><br><code style="font-size:11px">halftime_switch</code></td><td style="${td}">Kein Wechsel / Seitenwechsel nach Hälfte</td></tr>
+        <tr><td style="${td}">tools</td><td style="${td}">Text</td><td style="${td}">Gerät (z.B. Kettlebell)</td></tr>
+        <tr><td style="${td}">muscleGroup</td><td style="${td}">Text</td><td style="${td}">Muskelgruppe (z.B. Schulter)</td></tr>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <p style="font-size:13px;font-weight:600">Beispiel:</p>
+        <button class="btn btn-outline btn-sm" id="copyBtn">Kopieren</button>
+      </div>
+      <pre style="font-size:11px;background:var(--bg);padding:8px;margin-bottom:12px;border-radius:6px;overflow-x:auto;border:1px solid var(--border);white-space:pre-wrap">${csvExample}</pre>
+      <p style="font-size:13px;margin-bottom:12px;padding:8px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">💡 Die CSV-Datei lässt sich einfach in <strong>Excel</strong> oder <strong>Google Sheets</strong> bearbeiten — einfach öffnen, Zeilen hinzufügen ((Daten → Text in Spalten → Delimiter: Komma), bearbeiten, und wieder als CSV speichern/exportieren.</p>
+      <p style="font-size:13px;margin-top:12px;margin-bottom:4px;font-weight:600">Bilder:</p>
+      <p style="font-size:13px;margin-bottom:12px">Bilddateien nach ID benennen: <code style="background:var(--bg);padding:2px 5px;border-radius:3px;font-size:12px">1.jpg</code>, <code style="background:var(--bg);padding:2px 5px;border-radius:3px;font-size:12px">2.png</code> usw. Beim Import Ordner wählen, um CSV und Bilder in einem Schritt zu laden.</p>
+      <button class="btn btn-primary btn-sm" id="helpClose" style="width:100%">Schließen</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#helpClose').onclick = () => overlay.remove();
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.querySelector('#copyBtn').onclick = () => {
+    navigator.clipboard.writeText(csvExample).then(() => {
+      const btn = overlay.querySelector('#copyBtn');
+      btn.textContent = 'Kopiert!';
+      setTimeout(() => { btn.textContent = 'Kopieren'; }, 2000);
+    });
+  };
+}
+
 function showImportDialog() {
   showChoiceDialog('Importieren', [
     { label: 'Dateien auswählen (CSV + Bilder)', action: () => document.getElementById('csvFileInput').click() },
@@ -454,6 +501,16 @@ function resetFormImage() {
   await ImageStore.open();
 
   exercises = CSVProvider.getExercises();
+
+  // Migrate old German mode values to English identifiers
+  let migrated = false;
+  exercises = exercises.map(ex => {
+    const newMode = normalizeMode(ex.mode);
+    if (newMode !== ex.mode) migrated = true;
+    return { ...ex, mode: newMode };
+  });
+  if (migrated) saveExercises();
+
   if (exercises.length > 0) {
     renderImportedExercises();
     enableNav();
