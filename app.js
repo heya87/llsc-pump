@@ -21,10 +21,88 @@ let wakeLock = null;
 let pendingImageData = null;
 let pendingImageRemove = false;
 
+// Planner filter state
+let activeMuscleFilters = new Set();
+let activeToolFilters = new Set();
+
+// Import filter state
+let importSearchText = '';
+let importMuscleFilters = new Set();
+let importToolFilters = new Set();
+
+function toggleMuscleFilter(muscle) {
+  if (activeMuscleFilters.has(muscle)) activeMuscleFilters.delete(muscle);
+  else activeMuscleFilters.add(muscle);
+  renderLegends();
+  renderPool();
+}
+
+function toggleToolFilter(tool) {
+  if (activeToolFilters.has(tool)) activeToolFilters.delete(tool);
+  else activeToolFilters.add(tool);
+  renderLegends();
+  renderPool();
+}
+
+function resetPlannerFilters() {
+  activeMuscleFilters.clear();
+  activeToolFilters.clear();
+  renderLegends();
+  renderPool();
+}
+
+function onImportSearch(val) {
+  importSearchText = val.trim().toLowerCase();
+  renderImportedExercises();
+}
+
+function toggleImportMuscleFilter(muscle) {
+  if (importMuscleFilters.has(muscle)) importMuscleFilters.delete(muscle);
+  else importMuscleFilters.add(muscle);
+  renderImportedExercises();
+}
+
+function toggleImportToolFilter(tool) {
+  if (importToolFilters.has(tool)) importToolFilters.delete(tool);
+  else importToolFilters.add(tool);
+  renderImportedExercises();
+}
+
+function renderImportFilters() {
+  const section = document.getElementById('importFilterSection');
+  if (!section) return;
+  if (exercises.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
+  const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
+  renderFilterPanel('importFilterChips', muscles, tools, importMuscleFilters, importToolFilters, 'toggleImportMuscleFilter', 'toggleImportToolFilter', 'resetImportFilters');
+}
+
+function resetImportFilters() {
+  importMuscleFilters.clear();
+  importToolFilters.clear();
+  renderImportedExercises();
+}
+
 // ============================================================
 // NAVIGATION
 // ============================================================
 function showScreen(name) {
+  if (trainingRunning && name !== 'training') {
+    showConfirm(
+      'Das Training läuft gerade. Beim Wechseln geht der Fortschritt verloren.',
+      () => { stopTraining(); _doShowScreen(name); },
+      () => {},
+      'Training abbrechen',
+      'Weiter trainieren'
+    );
+    return;
+  }
+  _doShowScreen(name);
+}
+
+function _doShowScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -42,17 +120,8 @@ function enableNav() {
 // ============================================================
 // IMPORT SCREEN
 // ============================================================
-const importZone = document.getElementById('importZone');
 const csvFileInput = document.getElementById('csvFileInput');
 
-importZone.addEventListener('click', () => csvFileInput.click());
-importZone.addEventListener('dragover', e => { e.preventDefault(); importZone.classList.add('dragover'); });
-importZone.addEventListener('dragleave', () => importZone.classList.remove('dragover'));
-importZone.addEventListener('drop', e => {
-  e.preventDefault();
-  importZone.classList.remove('dragover');
-  handleImportFiles(e.dataTransfer.files);
-});
 csvFileInput.addEventListener('change', e => {
   handleImportFiles(e.target.files);
   e.target.value = '';
@@ -90,12 +159,6 @@ async function handleImportFiles(fileList) {
   if (imgCount > 0 || csvFile) {
     renderImportedExercises();
     enableNav();
-    const parts = [];
-    if (csvFile) parts.push(exercises.length + ' Übungen');
-    if (imgCount > 0) parts.push(imgCount + ' Bilder');
-    const badge = document.getElementById('exerciseCountBadge');
-    badge.style.display = 'block';
-    badge.textContent = parts.join(' + ') + ' geladen';
   }
 }
 
@@ -111,16 +174,29 @@ function readFileAsText(file) {
 // EXERCISE LIST RENDERING
 // ============================================================
 async function renderImportedExercises() {
-  const badge = document.getElementById('exerciseCountBadge');
-  badge.style.display = exercises.length > 0 ? 'block' : 'none';
-  badge.textContent = exercises.length + ' Übungen geladen';
-
   document.getElementById('actionRow').style.display = exercises.length > 0 ? 'flex' : 'none';
 
   const imgMap = await ImageStore.getAll();
 
+  renderImportFilters();
+
+  const filtered = exercises.filter(ex => {
+    if (importSearchText && !ex.name.toLowerCase().includes(importSearchText)) return false;
+    if (importMuscleFilters.size > 0 && !importMuscleFilters.has(ex.muscleGroup)) return false;
+    if (importToolFilters.size > 0 && !importToolFilters.has(ex.tools)) return false;
+    return true;
+  });
+
   const list = document.getElementById('importedList');
-  list.innerHTML = exercises.map(ex => {
+  const countLabel = filtered.length < exercises.length
+    ? `${filtered.length} / ${exercises.length}`
+    : `${exercises.length}`;
+  const countRow = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--text-light)">${countLabel}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeAllExercises()">Alle entfernen</button>
+    </div>`;
+  list.innerHTML = countRow + filtered.map(ex => {
     const hasImg = !!imgMap[ex.id];
     return `
     <div class="exercise-item">
@@ -144,7 +220,7 @@ async function renderImportedExercises() {
     </div>`;
   }).join('');
 
-  exercises.filter(ex => !imgMap[ex.id]).forEach(ex => {
+  filtered.filter(ex => !imgMap[ex.id]).forEach(ex => {
     const el = document.getElementById('filethumb-' + ex.id);
     if (!el) return;
     tryLoadFileImage(ex.id, url => {
@@ -161,6 +237,21 @@ function getNextId() {
   return Math.max(...exercises.map(e => e.id)) + 1;
 }
 
+function openExerciseForm() {
+  resetForm();
+  document.getElementById('formOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('addName').focus(), 50);
+}
+
+function closeExerciseForm() {
+  document.getElementById('formOverlay').style.display = 'none';
+  resetForm();
+}
+
+function handleFormOverlayClick(e) {
+  if (e.target === document.getElementById('formOverlay')) closeExerciseForm();
+}
+
 function resetForm() {
   document.getElementById('editId').value = '';
   document.getElementById('addName').value = '';
@@ -170,13 +261,13 @@ function resetForm() {
   document.getElementById('addMuscle').value = '';
   document.getElementById('formTitle').textContent = 'Übung hinzufügen';
   document.getElementById('formSubmitBtn').textContent = 'Hinzufügen';
-  document.getElementById('formCancelBtn').style.display = 'none';
   resetFormImage();
 }
 
 async function submitExerciseForm() {
   const name = document.getElementById('addName').value.trim();
   if (!name) { document.getElementById('addName').focus(); return; }
+
 
   const editId = parseInt(document.getElementById('editId').value, 10);
   let targetId;
@@ -213,7 +304,7 @@ async function submitExerciseForm() {
   saveExercises();
   renderImportedExercises();
   enableNav();
-  resetForm();
+  closeExerciseForm();
 }
 
 async function editExercise(id) {
@@ -227,7 +318,6 @@ async function editExercise(id) {
   document.getElementById('addMuscle').value = ex.muscleGroup;
   document.getElementById('formTitle').textContent = 'Übung bearbeiten (#' + ex.id + ')';
   document.getElementById('formSubmitBtn').textContent = 'Speichern';
-  document.getElementById('formCancelBtn').style.display = '';
 
   resetFormImage();
   const imgUrl = await getExerciseImageUrl(ex.id);
@@ -237,11 +327,11 @@ async function editExercise(id) {
     document.getElementById('imageUploadBtns').style.display = 'none';
   }
 
-  document.getElementById('addForm').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('formOverlay').style.display = 'flex';
 }
 
 function cancelEdit() {
-  resetForm();
+  closeExerciseForm();
 }
 
 function removeExercise(id) {
@@ -269,6 +359,23 @@ function removeAllExercises() {
 function saveExercises() {
   localStorage.setItem('csv_exercises', JSON.stringify(exercises));
   CSVProvider._exercises = exercises;
+}
+
+// ============================================================
+// IMPORT / EXPORT DIALOGS
+// ============================================================
+function showImportDialog() {
+  showChoiceDialog('Importieren', [
+    { label: 'Dateien auswählen (CSV + Bilder)', action: () => document.getElementById('csvFileInput').click() },
+    { label: 'Ordner wählen', action: () => document.getElementById('folderInput').click() },
+  ]);
+}
+
+function showExportDialog() {
+  showChoiceDialog('Exportieren als', [
+    { label: 'CSV exportieren', action: exportCSV },
+    { label: 'ZIP exportieren (mit Bildern)', action: exportZIP },
+  ]);
 }
 
 // ============================================================

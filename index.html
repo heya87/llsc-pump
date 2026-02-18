@@ -21,33 +21,39 @@
 <div id="screen-import" class="screen active">
   <h2 style="margin-bottom:12px;">Import / Export</h2>
 
-  <div class="import-zone" id="importZone">
-    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--text-light)">
-      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/>
-    </svg>
-    <p>CSV + Bilder hierher ziehen oder antippen</p>
-    <p style="font-size:11px;color:var(--text-light);margin-top:2px">CSV-Datei + Bilder (benannt nach ID, z.B. 5.jpg)</p>
-    <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp">
-  </div>
-  <div style="text-align:center;margin:-8px 0 12px">
-    <label class="btn btn-outline btn-sm" style="width:auto;cursor:pointer;display:inline-flex">
-      Ordner wählen
-      <input type="file" id="folderInput" webkitdirectory style="display:none">
-    </label>
-    <span style="font-size:11px;color:var(--text-light);display:block;margin-top:4px">Ordner mit CSV + Bildern auswählen (Desktop)</span>
+  <div style="margin-bottom:12px">
+    <button class="btn btn-outline btn-sm" style="width:100%" onclick="showImportDialog()">Importieren</button>
+    <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp" style="display:none">
+    <input type="file" id="folderInput" webkitdirectory style="display:none">
   </div>
 
-  <div class="action-row" id="actionRow" style="display:none">
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()">CSV exportieren</button>
-    <button class="btn btn-success btn-sm" onclick="exportZIP()">ZIP exportieren</button>
-    <button class="btn btn-danger btn-sm" onclick="removeAllExercises()">Alle entfernen</button>
+  <div id="actionRow" style="display:none">
+    <button class="btn btn-outline btn-sm" style="width:100%" onclick="showExportDialog()">Exportieren</button>
   </div>
 
-  <div id="exerciseCountBadge" class="exercise-count" style="display:none"></div>
+  <div style="margin-top:16px">
+    <button class="btn btn-primary" style="width:100%" onclick="openExerciseForm()">+ Übung hinzufügen</button>
+  </div>
 
-  <!-- Add Exercise Form -->
-  <div class="add-form" id="addForm">
-    <h3 id="formTitle">Übung hinzufügen</h3>
+  <div id="importFilterSection" style="display:none">
+    <div style="margin-top:16px" id="importFilterChips"></div>
+    <div style="margin-top:12px">
+      <input type="text" id="importSearch" placeholder="Übung suchen…" oninput="onImportSearch(this.value)"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;">
+    </div>
+    <div style="border-top:1px solid var(--border);margin-top:16px"></div>
+  </div>
+
+  <div id="importedList" class="exercise-list"></div>
+</div>
+
+<!-- ==================== EXERCISE FORM MODAL ==================== -->
+<div class="form-overlay" id="formOverlay" style="display:none" onclick="handleFormOverlayClick(event)">
+  <div class="form-dialog">
+    <div class="form-dialog-header">
+      <h3 id="formTitle">Übung hinzufügen</h3>
+      <button class="form-close-btn" onclick="closeExerciseForm()" type="button">&times;</button>
+    </div>
     <input type="hidden" id="editId" value="">
     <div class="form-row">
       <label>Name *</label>
@@ -84,20 +90,18 @@
             Datei wählen
             <input type="file" id="addImage" accept="image/*" style="display:none" onchange="handleImageSelect(this)">
           </label>
-          <label class="btn btn-outline btn-sm" style="width:auto;cursor:pointer">
+          <label class="btn btn-outline btn-sm camera-btn" style="width:auto;cursor:pointer">
             Kamera
             <input type="file" id="addImageCamera" accept="image/*" capture="environment" style="display:none" onchange="handleImageSelect(this)">
           </label>
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:6px;margin-top:8px">
+    <div style="display:flex;gap:6px;margin-top:12px">
       <button class="btn btn-success" id="formSubmitBtn" onclick="submitExerciseForm()">Hinzufügen</button>
-      <button class="btn btn-outline" id="formCancelBtn" onclick="cancelEdit()" style="display:none">Abbrechen</button>
+      <button class="btn btn-outline" onclick="closeExerciseForm()">Abbrechen</button>
     </div>
   </div>
-
-  <div id="importedList" class="exercise-list"></div>
 </div>
 
 <!-- ==================== PLANNER ==================== -->
@@ -139,22 +143,19 @@
 
       <div class="planner-columns">
         <div class="planner-col-pool">
-          <div class="pool-filters">
-            <select id="filterMuscle" onchange="renderPool()">
-              <option value="">Alle Muskelgruppen</option>
-            </select>
-            <select id="filterTool" onchange="renderPool()">
-              <option value="">Alle Tools</option>
-            </select>
-          </div>
-          <div class="exercise-pool" id="exercisePool"></div>
           <div style="display:flex;gap:6px;margin-bottom:10px">
             <button class="btn btn-outline btn-sm" onclick="addAllExercises()">Alle hinzufügen</button>
-            <button class="btn btn-outline btn-sm" onclick="clearPlan()">Zurücksetzen</button>
+          </div>
+          <div class="exercise-pool" id="exercisePool"></div>
+          <div id="addToSlotBtn" style="display:none;margin-top:6px">
+            <button class="btn btn-primary btn-sm" style="width:100%" onclick="addToNextFreeSlot(selectedExerciseId)">+ Nächster freier Slot</button>
           </div>
         </div>
 
         <div class="planner-col-stations">
+          <div style="margin-bottom:8px">
+            <button class="btn btn-outline btn-sm" onclick="clearPlan()">Stationen zurücksetzen</button>
+          </div>
           <div class="stops-grid" id="stopsGrid"></div>
         </div>
       </div>
