@@ -145,9 +145,6 @@
             <button class="btn btn-outline btn-sm" onclick="addAllExercises()">Alle hinzufügen</button>
           </div>
           <div class="exercise-pool" id="exercisePool"></div>
-          <div id="addToSlotBtn" style="display:none;margin-top:6px">
-            <button class="btn btn-primary btn-sm" style="width:100%" onclick="addToNextFreeSlot(selectedExerciseId)">+ Nächster freier Slot</button>
-          </div>
         </div>
 
         <div class="planner-col-stations">
@@ -164,6 +161,11 @@
 <!-- ==================== TRAINING ==================== -->
 <div id="screen-training" class="screen">
   <div id="trainingContent"></div>
+</div>
+
+<div id="selectionBar" class="selection-bar">
+  <span id="selectionBarName" class="selection-bar-name"></span>
+  <button class="btn selection-bar-btn" onclick="addToNextFreeSlot(selectedExerciseId)">+ Nächster freier Slot</button>
 </div>
 
 <script src="utils.js"></script>

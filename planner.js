@@ -71,8 +71,23 @@ function renderPool() {
     return `<span class="pool-item${isSelected ? ' selected' : ''}" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span></span>`;
   }).join('');
 
-  const addBtn = document.getElementById('addToSlotBtn');
-  if (addBtn) addBtn.style.display = selectedExerciseId !== null ? '' : 'none';
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selectionBar');
+  const nameEl = document.getElementById('selectionBarName');
+  const screen = document.getElementById('screen-planner');
+  if (!bar) return;
+  if (selectedExerciseId !== null) {
+    const ex = exercises.find(e => e.id === selectedExerciseId);
+    nameEl.textContent = ex ? ex.name : '';
+    bar.classList.add('visible');
+    screen.classList.add('bar-visible');
+  } else {
+    bar.classList.remove('visible');
+    screen.classList.remove('bar-visible');
+  }
 }
 
 function handlePoolTap(id) {

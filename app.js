@@ -110,6 +110,10 @@ function _doShowScreen(name) {
 
   if (name === 'planner') renderPlanner();
   if (name === 'training') renderTrainingSetup();
+  if (name !== 'planner') {
+    document.getElementById('selectionBar').classList.remove('visible');
+    document.getElementById('screen-planner').classList.remove('bar-visible');
+  }
 }
 
 function enableNav() {

@@ -554,6 +554,51 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .form-close-btn:hover { color: var(--text); }
 
+/* --- Selection bar --- */
+.selection-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.2);
+  transform: translateY(100%);
+  transition: transform .2s ease;
+}
+.selection-bar.visible {
+  transform: translateY(0);
+}
+.selection-bar-name {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.selection-bar-btn {
+  background: white;
+  color: var(--primary);
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.selection-bar-btn:hover { background: #e8f4fa; }
+
+/* push planner content up when bar is visible */
+#screen-planner.bar-visible { padding-bottom: 68px; }
+
 /* --- Confirm dialog --- */
 .confirm-overlay {
   position: fixed; inset: 0;
@@ -573,6 +618,19 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .confirm-box p { margin-bottom: 16px; font-size: 14px; line-height: 1.4; }
 .confirm-box .confirm-btns { display: flex; gap: 8px; }
 .confirm-box .confirm-btns .btn { flex: 1; }
+
+/* ============================================================
+   MOBILE PLANNER (stacked columns)
+   ============================================================ */
+@media (max-width: 899px) {
+  .planner-col-stations {
+    margin-top: 16px;
+  }
+  .stops-grid {
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+}
 
 /* ============================================================
    DESKTOP LAYOUT (>=900px)
