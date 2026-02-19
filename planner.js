@@ -140,7 +140,15 @@ function renderStops() {
   }
 }
 
+function isMobile() {
+  return window.matchMedia('(max-width: 899px)').matches;
+}
+
 function slotClick(stop, slot) {
+  if (isMobile()) {
+    openMobilePicker(stop, slot);
+    return;
+  }
   if (selectedExerciseId === null) return;
   plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
   plan.push({ stop, slot, exerciseId: selectedExerciseId });
@@ -149,6 +157,103 @@ function slotClick(stop, slot) {
   renderPool();
   renderStops();
 }
+
+// ============================================================
+// MOBILE EXERCISE PICKER
+// ============================================================
+let pickerStop = null;
+let pickerSlot = null;
+let pickerSearchText = '';
+let pickerMuscleFilters = new Set();
+let pickerToolFilters = new Set();
+
+function openMobilePicker(stop, slot) {
+  pickerStop = stop;
+  pickerSlot = slot;
+  pickerSearchText = '';
+  document.getElementById('mobilePickerSearch').value = '';
+  document.getElementById('mobilePickerTitle').textContent =
+    `Station ${stop + 1} · Slot ${slot + 1}`;
+  renderPickerFilters();
+  renderPickerExercises();
+  document.getElementById('mobilePicker').classList.add('visible');
+}
+
+function closeMobilePicker() {
+  document.getElementById('mobilePicker').classList.remove('visible');
+  pickerStop = null;
+  pickerSlot = null;
+}
+
+function renderPickerFilters() {
+  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
+  const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
+  renderFilterPanel('mobilePickerFilters', muscles, tools,
+    pickerMuscleFilters, pickerToolFilters,
+    'togglePickerMuscleFilter', 'togglePickerToolFilter', 'resetPickerFilters');
+}
+
+function renderPickerExercises() {
+  const usedIds = new Set(plan.map(p => p.exerciseId));
+  // Allow re-picking the exercise already in this slot
+  const current = plan.find(p => p.stop === pickerStop && p.slot === pickerSlot);
+  if (current) usedIds.delete(current.exerciseId);
+
+  const filtered = exercises.filter(ex => {
+    if (usedIds.has(ex.id)) return false;
+    if (pickerSearchText && !ex.name.toLowerCase().includes(pickerSearchText)) return false;
+    if (pickerMuscleFilters.size > 0 && !pickerMuscleFilters.has(ex.muscleGroup)) return false;
+    if (pickerToolFilters.size > 0 && !pickerToolFilters.has(ex.tools)) return false;
+    return true;
+  });
+
+  const meta = ex => [modeLabel(ex.mode), ex.muscleGroup, ex.tools].filter(Boolean).join(' · ');
+
+  document.getElementById('mobilePickerList').innerHTML = filtered.map(ex => `
+    <div class="picker-ex-item" onclick="assignFromPicker(${ex.id})">
+      ${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}
+      <div>
+        <div class="picker-ex-name">${esc(ex.name)}</div>
+        ${meta(ex) ? `<div class="picker-ex-meta">${meta(ex)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function assignFromPicker(exerciseId) {
+  plan = plan.filter(p => !(p.stop === pickerStop && p.slot === pickerSlot));
+  plan.push({ stop: pickerStop, slot: pickerSlot, exerciseId });
+  savePlan();
+  renderStops();
+  closeMobilePicker();
+}
+
+function togglePickerMuscleFilter(muscle) {
+  if (pickerMuscleFilters.has(muscle)) pickerMuscleFilters.delete(muscle);
+  else pickerMuscleFilters.add(muscle);
+  renderPickerFilters();
+  renderPickerExercises();
+}
+
+function togglePickerToolFilter(tool) {
+  if (pickerToolFilters.has(tool)) pickerToolFilters.delete(tool);
+  else pickerToolFilters.add(tool);
+  renderPickerFilters();
+  renderPickerExercises();
+}
+
+function resetPickerFilters() {
+  pickerMuscleFilters.clear();
+  pickerToolFilters.clear();
+  renderPickerFilters();
+  renderPickerExercises();
+}
+
+function onPickerSearch(val) {
+  pickerSearchText = val.trim().toLowerCase();
+  renderPickerExercises();
+}
+
 
 function removeSlot(stop, slot) {
   plan = plan.filter(p => !(p.stop === stop && p.slot === slot));

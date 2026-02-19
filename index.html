@@ -135,8 +135,11 @@
     </div>
 
     <div class="planner-main">
-      <p style="font-size:13px;color:var(--text-light);margin-bottom:8px;">
+      <p class="planner-hint-desktop" style="font-size:13px;color:var(--text-light);margin-bottom:8px;">
         Übung antippen, dann Slot antippen zum Zuweisen.
+      </p>
+      <p class="planner-hint-mobile" style="font-size:13px;color:var(--text-light);margin-bottom:8px;display:none">
+        Slot antippen zum Belegen.
       </p>
 
       <div class="planner-columns">
@@ -161,6 +164,20 @@
 <!-- ==================== TRAINING ==================== -->
 <div id="screen-training" class="screen">
   <div id="trainingContent"></div>
+</div>
+
+<div id="mobilePicker" class="mobile-picker">
+  <div class="mobile-picker-header">
+    <span id="mobilePickerTitle">Übung wählen</span>
+    <button class="form-close-btn" onclick="closeMobilePicker()" type="button">&times;</button>
+  </div>
+  <div class="mobile-picker-body">
+    <div id="mobilePickerFilters"></div>
+    <input type="text" id="mobilePickerSearch" placeholder="Übung suchen…"
+      oninput="onPickerSearch(this.value)"
+      style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;flex-shrink:0">
+    <div id="mobilePickerList"></div>
+  </div>
 </div>
 
 <div id="selectionBar" class="selection-bar">
