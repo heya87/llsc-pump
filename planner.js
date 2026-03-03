@@ -24,6 +24,16 @@ function readSettings() {
 function handleSettingChange() {
   readSettings();
   savePlan();
+  updatePlannerTimeEstimate();
+}
+
+function updatePlannerTimeEstimate() {
+  const el = document.getElementById('plannerTimeEstimate');
+  if (!el) return;
+  const { totalSec, stationCount } = calculateTotalTrainingSec();
+  el.textContent = stationCount > 0
+    ? `${stationCount} Stationen · ca. ${Math.ceil(totalSec / 60)} Min.`
+    : '';
 }
 
 function handleStopsChange(input) {
@@ -68,7 +78,7 @@ function renderPool() {
 
   pool.innerHTML = filtered.map(ex => {
     const isSelected = selectedExerciseId === ex.id;
-    return `<span class="pool-item${isSelected ? ' selected' : ''}" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span></span>`;
+    return `<span class="pool-item${isSelected ? ' selected' : ''}" draggable="true" ondragstart="dragFromPool(event,${ex.id})" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span></span>`;
   }).join('');
 
   updateSelectionBar();
@@ -111,8 +121,9 @@ function addToNextFreeSlot(id) {
 }
 
 function slotHtml(ex, stop, slot) {
-  if (!ex) return `<div class="slot" onclick="slotClick(${stop},${slot})">Slot ${slot + 1}</div>`;
-  return `<div class="slot filled" onclick="slotClick(${stop},${slot})">
+  const dropAttrs = `ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropOnSlot(event,${stop},${slot})"`;
+  if (!ex) return `<div class="slot" onclick="slotClick(${stop},${slot})" ${dropAttrs}>Slot ${slot + 1}</div>`;
+  return `<div class="slot filled" draggable="true" ondragstart="dragFromSlot(event,${stop},${slot})" onclick="slotClick(${stop},${slot})" ${dropAttrs}>
     <div class="slot-content">
       ${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}
       <span class="slot-name">${esc(ex.name)}</span>
@@ -129,8 +140,9 @@ function renderStops() {
     row.className = 'stop-row';
     const ex1 = getPlannedExercise(s, 0);
     const ex2 = getPlannedExercise(s, 1);
+    const conflict = stationHasMuscleConflict(s);
     row.innerHTML = `
-      <div class="stop-label">Station ${s + 1}</div>
+      <div class="stop-label">Station ${s + 1}${conflict ? ' <span class="muscle-warn" title="Gleiche Muskelgruppe wie Nachbarstation">⚠</span>' : ''}</div>
       <div class="stop-slots">
         ${slotHtml(ex1, s, 0)}
         ${slotHtml(ex2, s, 1)}
@@ -138,6 +150,7 @@ function renderStops() {
     `;
     grid.appendChild(row);
   }
+  updatePlannerTimeEstimate();
 }
 
 function isMobile() {
@@ -297,8 +310,84 @@ function getPlannedExercise(stop, slot) {
   return exercises.find(e => e.id === entry.exerciseId) || null;
 }
 
+function calculateTotalTrainingSec() {
+  const filledStops = [];
+  for (let s = 0; s < settings.stops; s++) {
+    const ex1 = getPlannedExercise(s, 0);
+    const ex2 = getPlannedExercise(s, 1);
+    if (ex1 || ex2) filledStops.push({ ex1, ex2 });
+  }
+  let totalSec = 0;
+  for (let i = 0; i < filledStops.length; i++) {
+    const st = filledStops[i];
+    const exCount = (st.ex1 ? 1 : 0) + (st.ex2 ? 1 : 0);
+    totalSec += exCount * settings.workTime;
+    if (exCount === 2) totalSec += settings.shortBreak;
+    if (i < filledStops.length - 1) totalSec += settings.longBreak;
+  }
+  return { totalSec, stationCount: filledStops.length };
+}
+
+function stationHasMuscleConflict(s) {
+  const muscleAt = (stop) => {
+    const ex1 = getPlannedExercise(stop, 0);
+    const ex2 = getPlannedExercise(stop, 1);
+    const groups = [ex1?.muscleGroup, ex2?.muscleGroup].filter(Boolean);
+    return groups;
+  };
+  const cur = muscleAt(s);
+  if (cur.length === 0) return false;
+  const check = (neighbor) => {
+    if (neighbor < 0 || neighbor >= settings.stops) return false;
+    const nb = muscleAt(neighbor);
+    return cur.some(m => nb.includes(m));
+  };
+  return check(s - 1) || check(s + 1);
+}
+
 function savePlan() {
   DataSource.saveWorkout({ plan, settings });
+}
+
+// ============================================================
+// DRAG & DROP
+// ============================================================
+function dragFromPool(event, id) {
+  event.dataTransfer.setData('text/plain', JSON.stringify({ source: 'pool', exerciseId: id }));
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function dragFromSlot(event, stop, slot) {
+  event.dataTransfer.setData('text/plain', JSON.stringify({ source: 'slot', stop, slot }));
+  event.dataTransfer.effectAllowed = 'move';
+  event.stopPropagation();
+}
+
+function dropOnSlot(event, targetStop, targetSlot) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  let data;
+  try { data = JSON.parse(event.dataTransfer.getData('text/plain')); } catch(e) { return; }
+
+  if (data.source === 'pool') {
+    plan = plan.filter(p => !(p.stop === targetStop && p.slot === targetSlot));
+    plan.push({ stop: targetStop, slot: targetSlot, exerciseId: data.exerciseId });
+  } else if (data.source === 'slot') {
+    if (data.stop === targetStop && data.slot === targetSlot) return;
+    const srcEntry = plan.find(p => p.stop === data.stop && p.slot === data.slot);
+    const tgtEntry = plan.find(p => p.stop === targetStop && p.slot === targetSlot);
+    plan = plan.filter(p =>
+      !(p.stop === data.stop && p.slot === data.slot) &&
+      !(p.stop === targetStop && p.slot === targetSlot)
+    );
+    if (srcEntry) plan.push({ stop: targetStop, slot: targetSlot, exerciseId: srcEntry.exerciseId });
+    if (tgtEntry) plan.push({ stop: data.stop, slot: data.slot, exerciseId: tgtEntry.exerciseId });
+  }
+
+  selectedExerciseId = null;
+  savePlan();
+  renderPool();
+  renderStops();
 }
 
 // ============================================================
