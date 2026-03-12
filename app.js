@@ -135,11 +135,6 @@ document.getElementById('folderInput').addEventListener('change', e => {
   e.target.value = '';
 });
 
-// Save settings when timing inputs change
-document.getElementById('settingWork').addEventListener('change', handleSettingChange);
-document.getElementById('settingShortBreak').addEventListener('change', handleSettingChange);
-document.getElementById('settingLongBreak').addEventListener('change', handleSettingChange);
-
 async function handleImportFiles(fileList) {
   const files = Array.from(fileList);
   const csvFile = files.find(f => f.name.toLowerCase().endsWith('.csv'));
@@ -531,4 +526,6 @@ function resetFormImage() {
       document.getElementById('settingStops').value = settings.stops;
     }
   }
+
+
 })();
