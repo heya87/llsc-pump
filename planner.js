@@ -479,6 +479,9 @@ async function exportStationSheets() {
   }
   if (stations.length === 0) { alert('Keine Stationen belegt.'); return; }
 
+  const w = window.open('', '_blank');
+  if (!w) { alert('Popup wurde blockiert. Bitte Popups für diese Seite erlauben.'); return; }
+
   const printImages = {};
   const allEx = stations.flatMap(st => [st.ex1, st.ex2]).filter(Boolean);
   await Promise.all(allEx.map(async ex => {
@@ -704,7 +707,6 @@ async function exportStationSheets() {
 </body>
 </html>`;
 
-  const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
 }
