@@ -111,7 +111,7 @@ async function startTraining() {
       : (phase.label || 'Pause');
 
     let switchHint = '';
-    if (phase.type === 'work' && ex && ex.mode.toLowerCase().includes('seitenwechsel')) {
+    if (phase.type === 'work' && ex && ex.mode === 'halftime_switch') {
       const half = Math.ceil(phase.duration / 2);
       if (remaining <= half && remaining > half - 3) {
         switchHint = '<div class="switch-hint">Seitenwechsel!</div>';
@@ -144,7 +144,7 @@ async function startTraining() {
           ${exImgUrl ? `<img class="training-image" src="${exImgUrl}" alt="${esc(ex.name)}">` : ''}
           ${ex.description ? `<div class="training-description">${esc(ex.description)}</div>` : ''}
           <div class="training-meta">
-            ${ex.mode ? `<span class="training-tag">${esc(ex.mode)}</span>` : ''}
+            ${modeLabel(ex.mode) ? `<span class="training-tag">${modeLabel(ex.mode)}</span>` : ''}
             ${ex.tools ? `<span class="training-tag">${esc(ex.tools)}</span>` : ''}
           </div>
           ${switchHint}
@@ -156,7 +156,7 @@ async function startTraining() {
               ${nextExImg ? `<img class="training-image" src="${nextExImg}" alt="${esc(nextEx.name)}" style="max-height:25vh">` : ''}
               ${nextEx.description ? `<div class="training-description">${esc(nextEx.description)}</div>` : ''}
               <div class="training-meta">
-                ${nextEx.mode ? `<span class="training-tag">${esc(nextEx.mode)}</span>` : ''}
+                ${modeLabel(nextEx.mode) ? `<span class="training-tag">${modeLabel(nextEx.mode)}</span>` : ''}
                 ${nextEx.tools ? `<span class="training-tag">${esc(nextEx.tools)}</span>` : ''}
               </div>
             </div>
@@ -214,7 +214,7 @@ async function startTraining() {
     // Single beep at halftime for seitenwechsel exercises (flag prevents re-firing)
     const curPhase = phases[currentPhase];
     if (!halftimeBeepFired && curPhase.type === 'work' && curPhase.exercise &&
-        curPhase.exercise.mode.toLowerCase().includes('seitenwechsel')) {
+        curPhase.exercise.mode === 'halftime_switch') {
       const half = Math.ceil(curPhase.duration / 2);
       if (remaining <= half) {
         halftimeBeepFired = true;

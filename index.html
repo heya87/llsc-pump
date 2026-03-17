@@ -12,31 +12,29 @@
   <div class="nav-brand">
     <img src="logo.png" alt="LLSC" class="nav-logo">
   </div>
-  <button id="navImport" class="active" onclick="showScreen('import')">Import/Export</button>
-  <button id="navPlanner" disabled onclick="showScreen('planner')">Planner</button>
+  <button id="navImport" class="active" onclick="showScreen('import')">Übungen</button>
+  <button id="navPlanner" disabled onclick="showScreen('planner')">Setup</button>
   <button id="navTraining" disabled onclick="showScreen('training')">Training</button>
 </nav>
 
 <!-- ==================== IMPORT ==================== -->
 <div id="screen-import" class="screen active">
-  <h2 style="margin-bottom:12px;">Import / Export</h2>
+  <h2 style="margin-bottom:12px;">Übungen</h2>
 
-  <div style="margin-bottom:12px">
-    <button class="btn btn-outline btn-sm" style="width:100%" onclick="showImportDialog()">Importieren</button>
-    <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp" style="display:none">
-    <input type="file" id="folderInput" webkitdirectory style="display:none">
+  <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="openExerciseForm()">Neue Übung</button>
+  <div style="display:flex;justify-content:flex-end;align-items:flex-start;gap:6px;margin-bottom:16px">
+    <button class="btn-icon" onclick="showImportHelp()" title="Hilfe zum CSV-Import">i</button>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn btn-outline btn-sm" style="padding-left:20px;padding-right:20px" onclick="showImportDialog()">Importieren</button>
+      <button class="btn btn-outline btn-sm" id="actionRow" style="display:none;padding-left:20px;padding-right:20px" onclick="showExportDialog()">Exportieren</button>
+    </div>
   </div>
 
-  <div id="actionRow" style="display:none">
-    <button class="btn btn-outline btn-sm" style="width:100%" onclick="showExportDialog()">Exportieren</button>
-  </div>
-
-  <div style="margin-top:16px">
-    <button class="btn btn-primary" style="width:100%" onclick="openExerciseForm()">+ Übung hinzufügen</button>
-  </div>
+  <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp" style="display:none">
+  <input type="file" id="folderInput" webkitdirectory style="display:none">
 
   <div id="importFilterSection" style="display:none">
-    <div style="margin-top:16px" id="importFilterChips"></div>
+    <div id="importFilterChips"></div>
     <div style="margin-top:12px">
       <input type="text" id="importSearch" placeholder="Übung suchen…" oninput="onImportSearch(this.value)"
         style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;">
@@ -66,8 +64,8 @@
     <div class="form-row">
       <label>Modus</label>
       <select id="addMode">
-        <option value="kein wechsel">kein wechsel</option>
-        <option value="seitenwechsel nach hälfte">seitenwechsel nach hälfte</option>
+        <option value="no_switch">Kein Wechsel</option>
+        <option value="halftime_switch">Seitenwechsel nach Hälfte</option>
       </select>
     </div>
     <div class="form-row">

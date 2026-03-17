@@ -218,7 +218,7 @@ async function exportStationSheets() {
           <div class="ex-tags">
             ${ex.muscleGroup ? `<span class="tag" style="background:${mc}20;border-color:${mc};color:${mc}">${esc(ex.muscleGroup)}</span>` : ''}
             ${ex.tools ? `<span class="tag">${esc(ex.tools)}</span>` : ''}
-            ${ex.mode ? `<span class="tag">${esc(ex.mode)}</span>` : ''}
+            ${modeLabel(ex.mode) ? `<span class="tag">${modeLabel(ex.mode)}</span>` : ''}
           </div>
         </div>
         ${ex.description ? `<div class="ex-description">${esc(ex.description)}</div>` : ''}

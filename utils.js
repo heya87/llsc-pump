@@ -44,6 +44,22 @@ function getToolColor(name) {
   return TOOL_COLORS[_hashStr(name) % TOOL_COLORS.length];
 }
 
+// ============================================================
+// MODE HELPERS
+// ============================================================
+function normalizeMode(mode) {
+  if (!mode) return 'no_switch';
+  const m = mode.trim().toLowerCase();
+  if (m === 'kein wechsel' || m === 'no_switch') return 'no_switch';
+  if (m === 'seitenwechsel nach hälfte' || m === 'halftime_switch') return 'halftime_switch';
+  return mode;
+}
+
+function modeLabel(mode) {
+  if (mode === 'halftime_switch') return 'Seitenwechsel';
+  return '';
+}
+
 function getToolAbbrev(name) {
   if (!name) return '';
   const words = name.trim().split(/\s+/);

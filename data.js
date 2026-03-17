@@ -56,7 +56,7 @@ const CSVProvider = {
         id,
         name: name,
         description: (cols[2] || '').trim(),
-        mode: (cols[3] || '').trim(),
+        mode: normalizeMode((cols[3] || '').trim()),
         tools: (cols[4] || '').trim(),
         muscleGroup: (cols[5] || '').trim(),
         image: null
@@ -130,7 +130,7 @@ function _csvEscape(val) {
 }
 
 function buildCSVString() {
-  const header = ',Übung,Beschreibung,Modus,Tools,Muskelgruppe';
+  const header = 'id,name,description,mode,tools,muscleGroup';
   const rows = exercises.map(ex =>
     [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup)].join(',')
   );
