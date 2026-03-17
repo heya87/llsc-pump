@@ -154,8 +154,10 @@
         </div>
 
         <div class="planner-col-stations">
-          <div style="margin-bottom:8px">
+          <div style="display:flex;gap:6px;margin-bottom:8px">
             <button class="btn btn-outline btn-sm" onclick="clearPlan()">Stationen zurücksetzen</button>
+            <button class="btn btn-outline btn-sm" onclick="saveFavouriteToFile()">Als Favorit speichern</button>
+            <button class="btn btn-outline btn-sm" onclick="loadFavouriteFromFile()">Favorit laden</button>
           </div>
           <div class="stops-grid" id="stopsGrid"></div>
         </div>
@@ -192,6 +194,7 @@
 <script src="data.js"></script>
 <script src="planner.js"></script>
 <script src="training.js"></script>
+<script src="favourites.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

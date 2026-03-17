@@ -204,6 +204,39 @@ const ImageStore = {
   }
 };
 
+// ============================================================
+// META STORE (IndexedDB) — for File System Access handles etc.
+// ============================================================
+const MetaStore = {
+  _db: null,
+  _open() {
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('llsc_meta', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('meta');
+      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async get(key) {
+    const db = await this._open();
+    return new Promise(resolve => {
+      const req = db.transaction('meta').objectStore('meta').get(key);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => resolve(null);
+    });
+  },
+  async set(key, value) {
+    const db = await this._open();
+    return new Promise(resolve => {
+      const tx = db.transaction('meta', 'readwrite');
+      value === null ? tx.objectStore('meta').delete(key) : tx.objectStore('meta').put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => resolve();
+    });
+  }
+};
+
 // Image helpers
 async function getExerciseImageUrl(id) {
   const stored = await ImageStore.get(id);
