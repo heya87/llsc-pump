@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LLSC Training Organizer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <img src="logo.jpg" alt="LLSC" class="nav-logo">
+  </div>
+  <button id="navImport" class="active" onclick="showScreen('import')">Import/Export</button>
+  <button id="navPlanner" disabled onclick="showScreen('planner')">Planner</button>
+  <button id="navTraining" disabled onclick="showScreen('training')">Training</button>
+</nav>
+
+<!-- ==================== IMPORT ==================== -->
+<div id="screen-import" class="screen active">
+  <h2 style="margin-bottom:12px;">Import / Export</h2>
+
+  <div class="import-zone" id="importZone">
+    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--text-light)">
+      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/>
+    </svg>
+    <p>CSV + Bilder hierher ziehen oder antippen</p>
+    <p style="font-size:11px;color:var(--text-light);margin-top:2px">CSV-Datei + Bilder (benannt nach ID, z.B. 5.jpg)</p>
+    <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp">
+  </div>
+  <div style="text-align:center;margin:-8px 0 12px">
+    <label class="btn btn-outline btn-sm" style="width:auto;cursor:pointer;display:inline-flex">
+      Ordner wählen
+      <input type="file" id="folderInput" webkitdirectory style="display:none">
+    </label>
+    <span style="font-size:11px;color:var(--text-light);display:block;margin-top:4px">Ordner mit CSV + Bildern auswählen (Desktop)</span>
+  </div>
+
+  <div class="action-row" id="actionRow" style="display:none">
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">CSV exportieren</button>
+    <button class="btn btn-success btn-sm" onclick="exportZIP()">ZIP exportieren</button>
+    <button class="btn btn-danger btn-sm" onclick="removeAllExercises()">Alle entfernen</button>
+  </div>
+
+  <div id="exerciseCountBadge" class="exercise-count" style="display:none"></div>
+
+  <!-- Add Exercise Form -->
+  <div class="add-form" id="addForm">
+    <h3 id="formTitle">Übung hinzufügen</h3>
+    <input type="hidden" id="editId" value="">
+    <div class="form-row">
+      <label>Name *</label>
+      <input type="text" id="addName" placeholder="z.B. Liegestütze">
+    </div>
+    <div class="form-row">
+      <label>Beschreibung</label>
+      <textarea id="addDesc" placeholder="Optional"></textarea>
+    </div>
+    <div class="form-row">
+      <label>Modus</label>
+      <select id="addMode">
+        <option value="kein wechsel">kein wechsel</option>
+        <option value="seitenwechsel nach hälfte">seitenwechsel nach hälfte</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Tools</label>
+      <input type="text" id="addTools" placeholder="z.B. Terraband, Kettlebell">
+    </div>
+    <div class="form-row">
+      <label>Muskelgruppe</label>
+      <input type="text" id="addMuscle" placeholder="z.B. Schulter">
+    </div>
+    <div class="form-row">
+      <label>Bild</label>
+      <div class="image-upload-area">
+        <div id="imagePreview" class="image-preview" style="display:none">
+          <img id="imagePreviewImg" src="">
+          <button class="img-remove-btn" onclick="removeFormImage()" type="button">&times;</button>
+        </div>
+        <div id="imageUploadBtns" class="image-upload-btns">
+          <label class="btn btn-outline btn-sm" style="width:auto;cursor:pointer">
+            Datei wählen
+            <input type="file" id="addImage" accept="image/*" style="display:none" onchange="handleImageSelect(this)">
+          </label>
+          <label class="btn btn-outline btn-sm" style="width:auto;cursor:pointer">
+            Kamera
+            <input type="file" id="addImageCamera" accept="image/*" capture="environment" style="display:none" onchange="handleImageSelect(this)">
+          </label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn btn-success" id="formSubmitBtn" onclick="submitExerciseForm()">Hinzufügen</button>
+      <button class="btn btn-outline" id="formCancelBtn" onclick="cancelEdit()" style="display:none">Abbrechen</button>
+    </div>
+  </div>
+
+  <div id="importedList" class="exercise-list"></div>
+</div>
+
+<!-- ==================== PLANNER ==================== -->
+<div id="screen-planner" class="screen">
+  <div class="planner-header">
+    <h2>Workout planen</h2>
+    <button class="btn btn-outline btn-sm" onclick="exportStationSheets()">Drucken</button>
+  </div>
+
+  <div class="settings-panel">
+    <h3>Timing (Sekunden)</h3>
+    <div class="setting-row">
+      <label>Trainingszeit</label>
+      <input type="number" id="settingWork" value="45" min="5" max="300">
+    </div>
+    <div class="setting-row">
+      <label>Kurze Pause</label>
+      <input type="number" id="settingShortBreak" value="15" min="5" max="120">
+    </div>
+    <div class="setting-row">
+      <label>Stationswechsel</label>
+      <input type="number" id="settingLongBreak" value="60" min="10" max="300">
+    </div>
+    <div class="setting-row">
+      <label>Anzahl Stationen</label>
+      <input type="number" id="settingStops" value="11" min="1" max="20" onchange="handleStopsChange(this)">
+    </div>
+  </div>
+
+  <div class="planner-layout">
+    <div class="planner-sidebar">
+      <div class="legends" id="legends"></div>
+    </div>
+
+    <div class="planner-main">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:8px;">
+        Übung antippen, dann Slot antippen zum Zuweisen.
+      </p>
+
+      <div class="planner-columns">
+        <div class="planner-col-pool">
+          <div class="pool-filters">
+            <select id="filterMuscle" onchange="renderPool()">
+              <option value="">Alle Muskelgruppen</option>
+            </select>
+            <select id="filterTool" onchange="renderPool()">
+              <option value="">Alle Tools</option>
+            </select>
+          </div>
+          <div class="exercise-pool" id="exercisePool"></div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <button class="btn btn-outline btn-sm" onclick="addAllExercises()">Alle hinzufügen</button>
+            <button class="btn btn-outline btn-sm" onclick="clearPlan()">Zurücksetzen</button>
+          </div>
+        </div>
+
+        <div class="planner-col-stations">
+          <div class="stops-grid" id="stopsGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TRAINING ==================== -->
+<div id="screen-training" class="screen">
+  <div id="trainingContent"></div>
+</div>
+
+<script src="utils.js"></script>
+<script src="data.js"></script>
+<script src="planner.js"></script>
+<script src="training.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
