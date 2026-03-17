@@ -79,27 +79,6 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .btn-sm { padding: 6px 12px; font-size: 13px; width: auto; }
 
 /* --- Import Screen --- */
-.import-zone {
-  border: 3px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: .2s;
-  margin-bottom: 16px;
-}
-.import-zone:hover, .import-zone.dragover {
-  border-color: var(--primary);
-  background: #EBF4F9;
-}
-.import-zone p { color: var(--text-light); margin-top: 8px; }
-#csvFileInput { display: none; }
-.exercise-count {
-  text-align: center; padding: 12px;
-  background: #E4F4EF; border-radius: var(--radius);
-  color: var(--success); font-weight: 600;
-  margin-top: 12px;
-}
 
 /* --- Exercise List (imported) --- */
 .exercise-list {
@@ -181,6 +160,15 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   transition: .2s;
   user-select: none;
   -webkit-user-select: none;
+  max-width: calc(100% - 6px);
+  min-width: 0;
+  overflow: hidden;
+}
+.pool-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .pool-item:hover { background: #D0E8F2; }
 .pool-item.selected {
@@ -409,15 +397,6 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   text-align: center; margin-top: 8px;
 }
 
-/* --- Add Exercise Form --- */
-.add-form {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  margin-bottom: 16px;
-}
-.add-form h3 { font-size: 15px; margin-bottom: 10px; }
 .form-row {
   margin-bottom: 8px;
 }
@@ -439,10 +418,12 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .form-row textarea { resize: vertical; min-height: 60px; }
 
 /* --- Export / action buttons row --- */
-.action-row {
-  display: flex; gap: 8px; margin-bottom: 16px;
+#actionRow { margin-bottom: 12px; }
+
+.camera-btn { display: none !important; }
+@media (hover: none) and (pointer: coarse) {
+  .camera-btn { display: inline-flex !important; }
 }
-.action-row .btn { flex: 1; }
 
 /* --- Image upload/preview --- */
 .image-upload-area { margin-top: 4px; }
@@ -514,7 +495,10 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 11px; padding: 2px 6px;
   border-radius: 10px; background: #EEF4F8;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: .15s;
 }
+.legend-item:hover { filter: brightness(.93); }
 .legend-color {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
 }
@@ -531,6 +515,36 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   font-size: 13px;
   background: white;
 }
+
+/* --- Exercise form modal --- */
+.form-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+.form-dialog {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.form-dialog-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
+}
+.form-dialog-header h3 { font-size: 17px; font-weight: 700; }
+.form-close-btn {
+  background: none; border: none;
+  font-size: 24px; line-height: 1;
+  color: var(--text-light); cursor: pointer;
+  padding: 0 2px;
+}
+.form-close-btn:hover { color: var(--text); }
 
 /* --- Confirm dialog --- */
 .confirm-overlay {
@@ -601,6 +615,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
     padding: 6px 10px;
     margin: 0 0 6px 0;
     min-height: 44px;
+    max-width: 100%;
   }
   .pool-item:hover {
     background: #EBF4F9;

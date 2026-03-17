@@ -4,50 +4,14 @@
 function renderPlanner() {
   readSettings();
   renderLegends();
-  populateFilters();
   renderPool();
   renderStops();
 }
 
-function populateFilters() {
-  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
-  const tools = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
-
-  const mSel = document.getElementById('filterMuscle');
-  const tSel = document.getElementById('filterTool');
-  const mVal = mSel.value;
-  const tVal = tSel.value;
-
-  mSel.innerHTML = '<option value="">Alle Muskelgruppen</option>' +
-    muscles.map(m => `<option value="${esc(m)}"${m === mVal ? ' selected' : ''}>${esc(m)}</option>`).join('');
-  tSel.innerHTML = '<option value="">Alle Tools</option>' +
-    tools.map(t => `<option value="${esc(t)}"${t === tVal ? ' selected' : ''}>${esc(t)}</option>`).join('');
-}
-
 function renderLegends() {
   const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
-  const tools = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
-
-  document.getElementById('legends').innerHTML = `
-    <div class="legend-section">
-      <h4>Muskelgruppen</h4>
-      <div class="legend-items">
-        ${muscles.map(m => {
-          const mc = getMuscleColor(m);
-          const ab = getToolAbbrev(m);
-          return `<span class="legend-item"><span class="muscle-badge" style="background:${mc};width:16px;height:16px;font-size:8px">${ab}</span>${esc(m)}</span>`;
-        }).join('')}
-        ${muscles.length === 0 ? '<span style="font-size:11px;color:var(--text-light)">–</span>' : ''}
-      </div>
-    </div>
-    <div class="legend-section">
-      <h4>Tools</h4>
-      <div class="legend-items">
-        ${tools.map(t => `<span class="legend-item"><span class="tool-badge" style="background:${getToolColor(t)};width:16px;height:16px;font-size:8px">${getToolAbbrev(t)}</span>${esc(t)}</span>`).join('')}
-        ${tools.length === 0 ? '<span style="font-size:11px;color:var(--text-light)">–</span>' : ''}
-      </div>
-    </div>
-  `;
+  const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
+  renderFilterPanel('legends', muscles, tools, activeMuscleFilters, activeToolFilters, 'toggleMuscleFilter', 'toggleToolFilter', 'resetPlannerFilters');
 }
 
 function readSettings() {
@@ -94,38 +58,26 @@ function handleStopsChange(input) {
 function renderPool() {
   const pool = document.getElementById('exercisePool');
   const usedIds = new Set(plan.map(p => p.exerciseId));
-  const filterMuscle = document.getElementById('filterMuscle').value;
-  const filterTool = document.getElementById('filterTool').value;
 
   const filtered = exercises.filter(ex => {
     if (usedIds.has(ex.id)) return false;
-    if (filterMuscle && ex.muscleGroup !== filterMuscle) return false;
-    if (filterTool && ex.tools !== filterTool) return false;
+    if (activeMuscleFilters.size > 0 && !activeMuscleFilters.has(ex.muscleGroup)) return false;
+    if (activeToolFilters.size > 0 && !activeToolFilters.has(ex.tools)) return false;
     return true;
   });
 
   pool.innerHTML = filtered.map(ex => {
     const isSelected = selectedExerciseId === ex.id;
-    return `<span class="pool-item${isSelected ? ' selected' : ''}"
-          onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}${ex.id}. ${esc(ex.name)}</span>`;
+    return `<span class="pool-item${isSelected ? ' selected' : ''}" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span></span>`;
   }).join('');
+
+  const addBtn = document.getElementById('addToSlotBtn');
+  if (addBtn) addBtn.style.display = selectedExerciseId !== null ? '' : 'none';
 }
 
-let lastTapId = null;
-let lastTapTime = 0;
-
 function handlePoolTap(id) {
-  const now = Date.now();
-  if (lastTapId === id && now - lastTapTime < 400) {
-    lastTapId = null;
-    lastTapTime = 0;
-    addToNextFreeSlot(id);
-  } else {
-    lastTapId = id;
-    lastTapTime = now;
-    selectedExerciseId = selectedExerciseId === id ? null : id;
-    renderPool();
-  }
+  selectedExerciseId = selectedExerciseId === id ? null : id;
+  renderPool();
 }
 
 function addToNextFreeSlot(id) {

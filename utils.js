@@ -64,17 +64,76 @@ function muscleBadgeHtml(ex) {
 }
 
 // ============================================================
+// SHARED FILTER PANEL
+// ============================================================
+function renderFilterPanel(containerId, muscles, tools, muscleFilters, toolFilters, toggleMuscleFn, toggleToolFn, resetFn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const anyActive = muscleFilters.size > 0 || toolFilters.size > 0;
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+    <button class="btn btn-outline btn-sm" style="visibility:${anyActive ? 'visible' : 'hidden'}" onclick="${resetFn}()">Filter zurücksetzen</button>
+    <div class="legend-section">
+      <h4>Filter: Muskelgruppe</h4>
+      <div class="legend-items">
+        ${muscles.map(m => {
+          const mc = getMuscleColor(m);
+          const active = muscleFilters.has(m);
+          return `<span class="legend-item${active ? ' filter-active' : ''}" onclick="${toggleMuscleFn}('${m.replace(/'/g, "\\'")}')" style="${active ? `background:${mc};color:white;` : ''}">
+            <span class="muscle-badge" style="background:${mc};width:16px;height:16px;font-size:8px${active ? ';border:2px solid rgba(255,255,255,.6)' : ''}">${getToolAbbrev(m)}</span>${esc(m)}</span>`;
+        }).join('')}
+        ${muscles.length === 0 ? '<span style="font-size:11px;color:var(--text-light)">–</span>' : ''}
+      </div>
+    </div>
+    <div class="legend-section">
+      <h4>Filter: Tools</h4>
+      <div class="legend-items">
+        ${tools.map(t => {
+          const tc = getToolColor(t);
+          const active = toolFilters.has(t);
+          return `<span class="legend-item${active ? ' filter-active' : ''}" onclick="${toggleToolFn}('${t.replace(/'/g, "\\'")}')" style="${active ? `background:${tc};color:white;` : ''}">
+            <span class="tool-badge" style="background:${tc};width:16px;height:16px;font-size:8px${active ? ';border:2px solid rgba(255,255,255,.6)' : ''}">${getToolAbbrev(t)}</span>${esc(t)}</span>`;
+        }).join('')}
+        ${tools.length === 0 ? '<span style="font-size:11px;color:var(--text-light)">–</span>' : ''}
+      </div>
+    </div>
+    </div>
+  `;
+}
+
+// ============================================================
 // CONFIRM DIALOG
 // ============================================================
-function showConfirm(message, onYes, onNo) {
+function showChoiceDialog(title, options) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <p style="font-weight:600;margin-bottom:12px">${esc(title)}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${options.map((o, i) => `<button class="btn btn-outline btn-sm" id="choice${i}">${esc(o.label)}</button>`).join('')}
+      </div>
+      <button class="btn btn-outline btn-sm" id="choiceCancel" style="margin-top:8px;width:100%">Abbrechen</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  options.forEach((o, i) => {
+    overlay.querySelector('#choice' + i).onclick = () => { overlay.remove(); o.action(); };
+  });
+  overlay.querySelector('#choiceCancel').onclick = () => overlay.remove();
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+}
+
+function showConfirm(message, onYes, onNo, yesLabel = 'Ja, entfernen', noLabel = 'Abbrechen') {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-overlay';
   overlay.innerHTML = `
     <div class="confirm-box">
       <p>${esc(message)}</p>
       <div class="confirm-btns">
-        <button class="btn btn-danger btn-sm" id="confirmYes">Ja, entfernen</button>
-        <button class="btn btn-outline btn-sm" id="confirmNo">Abbrechen</button>
+        <button class="btn btn-danger btn-sm" id="confirmYes">${esc(yesLabel)}</button>
+        <button class="btn btn-outline btn-sm" id="confirmNo">${esc(noLabel)}</button>
       </div>
     </div>
   `;

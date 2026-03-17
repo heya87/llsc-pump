@@ -28,9 +28,8 @@ function renderTrainingSetup() {
   for (let i = 0; i < filledStops.length; i++) {
     const st = filledStops[i];
     const exCount = (st.ex1 ? 1 : 0) + (st.ex2 ? 1 : 0);
-    // Each exercise: work + short break + work
-    totalSec += exCount * (2 * settings.workTime + settings.shortBreak);
-    // Between exercises at same stop: short break
+    totalSec += exCount * settings.workTime;
+    // Short break between the two exercises at the same stop
     if (exCount === 2) totalSec += settings.shortBreak;
     // Between stops: long break
     if (i < filledStops.length - 1) totalSec += settings.longBreak;
@@ -58,9 +57,7 @@ function buildPhases() {
 
     const stopExercises = [ex1, ex2].filter(Boolean);
     stopExercises.forEach((ex, exIdx) => {
-      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime, round: 1 });
-      phases.push({ type: 'break', exercise: ex, stop: s, duration: settings.shortBreak, label: 'Kurze Pause' });
-      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime, round: 2 });
+      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime });
 
       const isLastExInStop = exIdx === stopExercises.length - 1;
       if (isLastExInStop) {
@@ -99,6 +96,8 @@ async function startTraining() {
   // Drift-corrected timer: track when the phase started
   let phaseStartTime = Date.now();
   let phaseStartRemaining = remaining;
+  let halftimeBeepFired = false;
+  let endBeepFired = false;
 
   function render() {
     const phase = phases[currentPhase];
@@ -108,7 +107,7 @@ async function startTraining() {
 
     const phaseClass = phase.type === 'work' ? 'phase-work' : phase.type === 'break' ? 'phase-break' : 'phase-transition';
     const phaseLabel = phase.type === 'work'
-      ? `Training (Runde ${phase.round}/2)`
+      ? 'Training'
       : (phase.label || 'Pause');
 
     let switchHint = '';
@@ -116,6 +115,19 @@ async function startTraining() {
       const half = Math.ceil(phase.duration / 2);
       if (remaining <= half && remaining > half - 3) {
         switchHint = '<div class="switch-hint">Seitenwechsel!</div>';
+      }
+    }
+
+    // Look ahead for next exercise to show during breaks
+    let nextEx = null;
+    let nextExImg = null;
+    if (phase.type !== 'work') {
+      for (let i = currentPhase + 1; i < phases.length; i++) {
+        if (phases[i].type === 'work' && phases[i].exercise) {
+          nextEx = phases[i].exercise;
+          nextExImg = trainingImages[nextEx.id];
+          break;
+        }
       }
     }
 
@@ -136,7 +148,20 @@ async function startTraining() {
             ${ex.tools ? `<span class="training-tag">${esc(ex.tools)}</span>` : ''}
           </div>
           ${switchHint}
-        ` : `<div class="training-exercise-name">${esc(phaseLabel)}</div>`}
+        ` : `
+          ${nextEx ? `
+            <div style="opacity:.45;margin-top:8px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);margin-bottom:8px">Nächste Übung</div>
+              <div class="training-exercise-name" style="font-size:20px">${esc(nextEx.name)}</div>
+              ${nextExImg ? `<img class="training-image" src="${nextExImg}" alt="${esc(nextEx.name)}" style="max-height:25vh">` : ''}
+              ${nextEx.description ? `<div class="training-description">${esc(nextEx.description)}</div>` : ''}
+              <div class="training-meta">
+                ${nextEx.mode ? `<span class="training-tag">${esc(nextEx.mode)}</span>` : ''}
+                ${nextEx.tools ? `<span class="training-tag">${esc(nextEx.tools)}</span>` : ''}
+              </div>
+            </div>
+          ` : `<div class="training-exercise-name">${esc(phaseLabel)}</div>`}
+        `}
         <div class="training-controls">
           <button class="btn ${trainingPaused ? 'btn-success' : 'btn-warning'}" onclick="togglePause()">
             ${trainingPaused ? 'Weiter' : 'Pause'}
@@ -159,6 +184,12 @@ async function startTraining() {
     const elapsed = Math.floor((Date.now() - phaseStartTime) / 1000);
     remaining = Math.max(0, phaseStartRemaining - elapsed);
 
+    // Beep sequence 2 seconds before phase ends
+    if (!endBeepFired && remaining <= 5 && remaining > 0) {
+      endBeepFired = true;
+      beepSequence();
+    }
+
     if (remaining <= 0) {
       currentPhase++;
       if (currentPhase >= phases.length) {
@@ -176,20 +207,20 @@ async function startTraining() {
       remaining = phases[currentPhase].duration;
       phaseStartTime = Date.now();
       phaseStartRemaining = remaining;
+      halftimeBeepFired = false;
+      endBeepFired = false;
     }
 
-    // Beep countdown to halftime for seitenwechsel exercises
+    // Single beep at halftime for seitenwechsel exercises (flag prevents re-firing)
     const curPhase = phases[currentPhase];
-    if (curPhase.type === 'work' && curPhase.exercise &&
+    if (!halftimeBeepFired && curPhase.type === 'work' && curPhase.exercise &&
         curPhase.exercise.mode.toLowerCase().includes('seitenwechsel')) {
       const half = Math.ceil(curPhase.duration / 2);
-      if (remaining > half && remaining <= half + 3) beep(300, 100);
-      if (remaining === half) beep(600, 300);
+      if (remaining <= half) {
+        halftimeBeepFired = true;
+        beep(600, 600);
+      }
     }
-
-    // Beep at 3, 2, 1
-    if (remaining <= 3 && remaining > 0) beep(300, 100);
-    if (remaining === 0) beep(600, 300);
 
     render();
     trainingTimer = setTimeout(tick, 250); // Check more frequently for drift correction
@@ -214,6 +245,16 @@ function stopTraining() {
 // AUDIO — single shared AudioContext
 // ============================================================
 let _audioCtx = null;
+
+function beepSequence() {
+  const beeps = [
+    { delay: 1250, freq: 400, dur: 600 },
+    { delay: 2500, freq: 400, dur: 600 },
+    { delay: 3750, freq: 400, dur: 600 },
+    { delay: 5000, freq: 600, dur: 600 },
+  ];
+  beeps.forEach(b => setTimeout(() => beep(b.freq, b.dur), b.delay));
+}
 
 function beep(freq, duration) {
   try {
