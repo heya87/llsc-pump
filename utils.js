@@ -51,12 +51,14 @@ function normalizeMode(mode) {
   if (!mode) return 'no_switch';
   const m = mode.trim().toLowerCase();
   if (m === 'kein wechsel' || m === 'no_switch') return 'no_switch';
-  if (m === 'seitenwechsel nach hälfte' || m === 'halftime_switch') return 'halftime_switch';
+  if (m === 'seitenwechsel nach hälfte' || m === 'halftime_switch' || m === 'seitenwechsel pro übung' || m === 'switch_per_exercise') return 'switch_per_exercise';
+  if (m === 'seitenwechsel pro station' || m === 'switch_per_station') return 'switch_per_station';
   return mode;
 }
 
 function modeLabel(mode) {
-  if (mode === 'halftime_switch') return 'Seitenwechsel';
+  if (mode === 'switch_per_exercise') return 'Seitenwechsel pro Übung';
+  if (mode === 'switch_per_station') return 'Seitenwechsel pro Station';
   return '';
 }
 

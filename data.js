@@ -31,7 +31,7 @@ const CSVProvider = {
   _exercises: [],
 
   parseCSV(text) {
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = this._splitCSVRows(text);
     if (lines.length < 2) return [];
 
     const headers = this._parseLine(lines[0]).map(h => h.trim().toLowerCase());
@@ -68,6 +68,34 @@ const CSVProvider = {
     return exercises;
   },
 
+  // Split CSV text into logical rows, respecting quoted fields that span multiple lines
+  _splitCSVRows(text) {
+    const rows = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"') {
+        if (inQuotes && i + 1 < text.length && text[i + 1] === '"') {
+          current += '""';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+          current += ch;
+        }
+      } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+        if (ch === '\r' && text[i + 1] === '\n') i++; // skip \r in \r\n
+        const row = current.trim();
+        if (row) rows.push(row);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    if (current.trim()) rows.push(current.trim());
+    return rows;
+  },
+
   _parseLine(line) {
     const result = [];
     let current = '';
@@ -81,7 +109,7 @@ const CSVProvider = {
         } else {
           inQuotes = !inQuotes;
         }
-      } else if (ch === ',' && !inQuotes) {
+      } else if (ch === ';' && !inQuotes) {
         result.push(current);
         current = '';
       } else {
@@ -123,16 +151,16 @@ DataSource.setProvider(CSVProvider);
 // ============================================================
 function _csvEscape(val) {
   if (!val) return '';
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+  if (val.includes(';') || val.includes('"') || val.includes('\n')) {
     return '"' + val.replace(/"/g, '""') + '"';
   }
   return val;
 }
 
 function buildCSVString() {
-  const header = 'id,name,description,mode,tools,muscleGroup';
+  const header = 'id;name;description;mode;tools;muscleGroup';
   const rows = exercises.map(ex =>
-    [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup)].join(',')
+    [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup)].join(';')
   );
   return [header, ...rows].join('\n');
 }

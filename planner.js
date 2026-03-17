@@ -78,7 +78,8 @@ function renderPool() {
 
   pool.innerHTML = filtered.map(ex => {
     const isSelected = selectedExerciseId === ex.id;
-    return `<span class="pool-item${isSelected ? ' selected' : ''}" draggable="true" ondragstart="dragFromPool(event,${ex.id})" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span></span>`;
+    const dualBadge = ex.mode === 'switch_per_station' ? '<span class="dual-slot-badge">×2</span>' : '';
+    return `<span class="pool-item${isSelected ? ' selected' : ''}" draggable="true" ondragstart="dragFromPool(event,${ex.id})" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span>${dualBadge}</span>`;
   }).join('');
 
   updateSelectionBar();
@@ -91,7 +92,7 @@ function updateSelectionBar() {
   if (!bar) return;
   if (selectedExerciseId !== null) {
     const ex = exercises.find(e => e.id === selectedExerciseId);
-    nameEl.textContent = ex ? ex.name : '';
+    nameEl.textContent = ex ? (ex.mode === 'switch_per_station' ? `${ex.name} (belegt 2 Slots)` : ex.name) : '';
     bar.classList.add('visible');
     screen.classList.add('bar-visible');
   } else {
@@ -105,16 +106,63 @@ function handlePoolTap(id) {
   renderPool();
 }
 
+// Check if placing exerciseId at (stop, slot) is blocked by a per-station exercise
+function canPlaceAt(stop, slot, exerciseId) {
+  const ex = exercises.find(e => e.id === exerciseId);
+  const otherSlot = slot === 0 ? 1 : 0;
+  const otherEntry = plan.find(p => p.stop === stop && p.slot === otherSlot);
+  const otherEx = otherEntry ? exercises.find(e => e.id === otherEntry.exerciseId) : null;
+
+  // Placing a per_station exercise: other slot must be free (unless it's the same exercise already there)
+  if (ex && ex.mode === 'switch_per_station' && otherEntry && otherEntry.exerciseId !== exerciseId) return false;
+  // Placing into a station that has a per_station exercise in the other slot (different exercise)
+  if (otherEx && otherEx.mode === 'switch_per_station' && otherEntry.exerciseId !== exerciseId) return false;
+
+  return true;
+}
+
+function placeExercise(stop, slot, exerciseId) {
+  const ex = exercises.find(e => e.id === exerciseId);
+  if (!canPlaceAt(stop, slot, exerciseId)) {
+    alert('Diese Station ist bereits mit einer Doppel\u00fcbung (Seitenwechsel pro Station) belegt.');
+    return false;
+  }
+  plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
+  plan.push({ stop, slot, exerciseId });
+  // Auto-fill both slots for per_station
+  if (ex && ex.mode === 'switch_per_station') {
+    const otherSlot = slot === 0 ? 1 : 0;
+    plan = plan.filter(p => !(p.stop === stop && p.slot === otherSlot));
+    plan.push({ stop, slot: otherSlot, exerciseId });
+  }
+  return true;
+}
+
 function addToNextFreeSlot(id) {
+  const ex = exercises.find(e => e.id === id);
+  const needsBoth = ex && ex.mode === 'switch_per_station';
   for (let s = 0; s < settings.stops; s++) {
-    for (let sl = 0; sl < 2; sl++) {
-      if (!plan.find(p => p.stop === s && p.slot === sl)) {
-        plan.push({ stop: s, slot: sl, exerciseId: id });
+    if (needsBoth) {
+      const slot0 = plan.find(p => p.stop === s && p.slot === 0);
+      const slot1 = plan.find(p => p.stop === s && p.slot === 1);
+      if (!slot0 && !slot1) {
+        placeExercise(s, 0, id);
         selectedExerciseId = null;
         savePlan();
         renderPool();
         renderStops();
         return;
+      }
+    } else {
+      for (let sl = 0; sl < 2; sl++) {
+        if (!plan.find(p => p.stop === s && p.slot === sl) && canPlaceAt(s, sl, id)) {
+          plan.push({ stop: s, slot: sl, exerciseId: id });
+          selectedExerciseId = null;
+          savePlan();
+          renderPool();
+          renderStops();
+          return;
+        }
       }
     }
   }
@@ -123,10 +171,11 @@ function addToNextFreeSlot(id) {
 function slotHtml(ex, stop, slot) {
   const dropAttrs = `ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropOnSlot(event,${stop},${slot})"`;
   if (!ex) return `<div class="slot" onclick="slotClick(${stop},${slot})" ${dropAttrs}>Slot ${slot + 1}</div>`;
+  const sideLabel = ex.mode === 'switch_per_station' ? `<span class="slot-side-label">Seite ${slot + 1}</span>` : '';
   return `<div class="slot filled" draggable="true" ondragstart="dragFromSlot(event,${stop},${slot})" onclick="slotClick(${stop},${slot})" ${dropAttrs}>
     <div class="slot-content">
       ${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}
-      <span class="slot-name">${esc(ex.name)}</span>
+      <span class="slot-name">${esc(ex.name)}</span>${sideLabel}
     </div>
     <button class="remove-btn" onclick="event.stopPropagation();removeSlot(${stop},${slot})">&times;</button>
   </div>`;
@@ -163,8 +212,7 @@ function slotClick(stop, slot) {
     return;
   }
   if (selectedExerciseId === null) return;
-  plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
-  plan.push({ stop, slot, exerciseId: selectedExerciseId });
+  if (!placeExercise(stop, slot, selectedExerciseId)) return;
   selectedExerciseId = null;
   savePlan();
   renderPool();
@@ -234,9 +282,9 @@ function renderPickerExercises() {
 }
 
 function assignFromPicker(exerciseId) {
-  plan = plan.filter(p => !(p.stop === pickerStop && p.slot === pickerSlot));
-  plan.push({ stop: pickerStop, slot: pickerSlot, exerciseId });
+  if (!placeExercise(pickerStop, pickerSlot, exerciseId)) return;
   savePlan();
+  renderPool();
   renderStops();
   closeMobilePicker();
 }
@@ -269,7 +317,18 @@ function onPickerSearch(val) {
 
 
 function removeSlot(stop, slot) {
-  plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
+  // If this is a per_station exercise, remove both slots
+  const entry = plan.find(p => p.stop === stop && p.slot === slot);
+  if (entry) {
+    const ex = exercises.find(e => e.id === entry.exerciseId);
+    if (ex && ex.mode === 'switch_per_station') {
+      plan = plan.filter(p => !(p.stop === stop));
+    } else {
+      plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
+    }
+  } else {
+    plan = plan.filter(p => !(p.stop === stop && p.slot === slot));
+  }
   savePlan();
   renderPool();
   renderStops();
@@ -288,11 +347,22 @@ function addAllExercises() {
   const available = exercises.filter(e => !usedIds.has(e.id)).sort((a, b) => a.id - b.id);
   for (const ex of available) {
     let placed = false;
+    const needsBoth = ex.mode === 'switch_per_station';
     for (let s = 0; s < settings.stops && !placed; s++) {
-      for (let sl = 0; sl < 2 && !placed; sl++) {
-        if (!plan.find(p => p.stop === s && p.slot === sl)) {
-          plan.push({ stop: s, slot: sl, exerciseId: ex.id });
+      if (needsBoth) {
+        const slot0 = plan.find(p => p.stop === s && p.slot === 0);
+        const slot1 = plan.find(p => p.stop === s && p.slot === 1);
+        if (!slot0 && !slot1) {
+          plan.push({ stop: s, slot: 0, exerciseId: ex.id });
+          plan.push({ stop: s, slot: 1, exerciseId: ex.id });
           placed = true;
+        }
+      } else {
+        for (let sl = 0; sl < 2 && !placed; sl++) {
+          if (!plan.find(p => p.stop === s && p.slot === sl) && canPlaceAt(s, sl, ex.id)) {
+            plan.push({ stop: s, slot: sl, exerciseId: ex.id });
+            placed = true;
+          }
         }
       }
     }
@@ -370,12 +440,18 @@ function dropOnSlot(event, targetStop, targetSlot) {
   try { data = JSON.parse(event.dataTransfer.getData('text/plain')); } catch(e) { return; }
 
   if (data.source === 'pool') {
-    plan = plan.filter(p => !(p.stop === targetStop && p.slot === targetSlot));
-    plan.push({ stop: targetStop, slot: targetSlot, exerciseId: data.exerciseId });
+    if (!placeExercise(targetStop, targetSlot, data.exerciseId)) return;
   } else if (data.source === 'slot') {
     if (data.stop === targetStop && data.slot === targetSlot) return;
     const srcEntry = plan.find(p => p.stop === data.stop && p.slot === data.slot);
+    const srcEx = srcEntry ? exercises.find(e => e.id === srcEntry.exerciseId) : null;
     const tgtEntry = plan.find(p => p.stop === targetStop && p.slot === targetSlot);
+    const tgtEx = tgtEntry ? exercises.find(e => e.id === tgtEntry.exerciseId) : null;
+    // Block drag of/onto per_station exercises (too complex to swap)
+    if ((srcEx && srcEx.mode === 'switch_per_station') || (tgtEx && tgtEx.mode === 'switch_per_station')) {
+      alert('Doppel\u00fcbungen (Seitenwechsel pro Station) k\u00f6nnen nicht per Drag verschoben werden. Bitte entfernen und neu zuweisen.');
+      return;
+    }
     plan = plan.filter(p =>
       !(p.stop === data.stop && p.slot === data.slot) &&
       !(p.stop === targetStop && p.slot === targetSlot)
@@ -438,17 +514,25 @@ async function exportStationSheets() {
     `;
   }
 
-  const pages = stations.map(st => `
+  const pages = stations.map(st => {
+    const isPerStation = st.ex1 && st.ex2 && st.ex1.id === st.ex2.id && st.ex1.mode === 'switch_per_station';
+    const label1 = isPerStation ? 'Seite 1' : 'Übung 1';
+    const label2 = isPerStation ? 'Seite 2' : 'Übung 2';
+    const timingText = isPerStation
+      ? `${settings.workTime}s Seite 1 &middot; ${settings.shortBreak}s Seitenwechsel &middot; ${settings.workTime}s Seite 2 &middot; ${settings.longBreak}s Wechsel`
+      : `${settings.workTime}s Training &middot; ${settings.shortBreak}s Pause &middot; ${settings.workTime}s Training &middot; ${settings.longBreak}s Wechsel`;
+    return `
     <div class="page">
       <div class="station-header">Station ${st.num}</div>
-      <div class="station-timing">${settings.workTime}s Training &middot; ${settings.shortBreak}s Pause &middot; ${settings.workTime}s Training &middot; ${settings.longBreak}s Wechsel</div>
+      <div class="station-timing">${timingText}</div>
       <div class="exercises">
-        ${exBlock(st.ex1, 'Übung 1')}
+        ${exBlock(st.ex1, label1)}
         <div class="divider"></div>
-        ${exBlock(st.ex2, 'Übung 2')}
+        ${exBlock(st.ex2, label2)}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="de">

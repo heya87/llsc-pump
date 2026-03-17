@@ -63,9 +63,11 @@ function buildPhases() {
     const ex2 = getPlannedExercise(s, 1);
     if (!ex1 && !ex2) continue;
 
+    const isPerStation = ex1 && ex2 && ex1.id === ex2.id && ex1.mode === 'switch_per_station';
     const stopExercises = [ex1, ex2].filter(Boolean);
     stopExercises.forEach((ex, exIdx) => {
-      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime });
+      const sideLabel = isPerStation ? (exIdx === 0 ? 'Seite 1' : 'Seite 2') : null;
+      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime, sideLabel });
 
       const isLastExInStop = exIdx === stopExercises.length - 1;
       if (isLastExInStop) {
@@ -77,7 +79,8 @@ function buildPhases() {
           phases.push({ type: 'transition', exercise: null, stop: s, duration: settings.longBreak, label: 'Stationswechsel' });
         }
       } else {
-        phases.push({ type: 'break', exercise: null, stop: s, duration: settings.shortBreak, label: 'Nächste Übung' });
+        const breakLabel = isPerStation ? 'Seitenwechsel' : 'Nächste Übung';
+        phases.push({ type: 'break', exercise: null, stop: s, duration: settings.shortBreak, label: breakLabel });
       }
     });
   }
@@ -125,11 +128,11 @@ async function startTraining() {
 
     const phaseClass = phase.type === 'work' ? 'phase-work' : phase.type === 'break' ? 'phase-break' : 'phase-transition';
     const phaseLabel = phase.type === 'work'
-      ? 'Training'
+      ? (phase.sideLabel ? `Training – ${phase.sideLabel}` : 'Training')
       : (phase.label || 'Pause');
 
     let switchHint = '';
-    if (phase.type === 'work' && ex && ex.mode === 'halftime_switch') {
+    if (phase.type === 'work' && ex && ex.mode === 'switch_per_exercise') {
       const half = Math.ceil(phase.duration / 2);
       if (remaining <= half && remaining > half - 3) {
         switchHint = '<div class="switch-hint">Seitenwechsel!</div>';
@@ -234,7 +237,7 @@ async function startTraining() {
     // Single beep at halftime for seitenwechsel exercises (flag prevents re-firing)
     const curPhase = phases[currentPhase];
     if (!halftimeBeepFired && curPhase.type === 'work' && curPhase.exercise &&
-        curPhase.exercise.mode === 'halftime_switch') {
+        curPhase.exercise.mode === 'switch_per_exercise') {
       const half = Math.ceil(curPhase.duration / 2);
       if (remaining <= half) {
         halftimeBeepFired = true;

@@ -364,10 +364,11 @@ function saveExercises() {
 // IMPORT / EXPORT DIALOGS
 // ============================================================
 function showImportHelp() {
-  const csvExample = `id,name,description,mode,tools,muscleGroup
-1,Liegestütze,Arme schulterbreit,no_switch,,Brust
-2,Ausfallschritt,Links/rechts wechseln,halftime_switch,,Beine
-3,Schulterdrücken,,no_switch,Kettlebell,Schulter`;
+  const csvExample = `id;name;description;mode;tools;muscleGroup
+1;Liegestütze;Arme schulterbreit;no_switch;;Brust
+2;Ausfallschritt;Links/rechts wechseln;switch_per_exercise;;Beine
+3;Einbeiniges Kreuzheben;;switch_per_station;Kettlebell;Beine
+4;Schulterdrücken;;no_switch;Kettlebell;Schulter`;
 
   const td = 'padding:4px 8px;border:1px solid var(--border)';
   const th = td + ';font-weight:600;background:var(--bg)';
@@ -383,7 +384,7 @@ function showImportHelp() {
         <tr><td style="${td}">id</td><td style="${td}">Zahl</td><td style="${td}">Eindeutige Nummer</td></tr>
         <tr><td style="${td}">name</td><td style="${td}">Text</td><td style="${td}">Name der Übung *</td></tr>
         <tr><td style="${td}">description</td><td style="${td}">Text</td><td style="${td}">Beschreibung (optional)</td></tr>
-        <tr><td style="${td}">mode</td><td style="${td}"><code style="font-size:11px">no_switch</code><br><code style="font-size:11px">halftime_switch</code></td><td style="${td}">Kein Wechsel / Seitenwechsel nach Hälfte</td></tr>
+        <tr><td style="${td}">mode</td><td style="${td}"><code style="font-size:11px">no_switch</code><br><code style="font-size:11px">switch_per_exercise</code><br><code style="font-size:11px">switch_per_station</code></td><td style="${td}">Kein Wechsel / Seitenwechsel pro Übung (halbe Zeit) / Seitenwechsel pro Station (belegt beide Slots)</td></tr>
         <tr><td style="${td}">tools</td><td style="${td}">Text</td><td style="${td}">Gerät (z.B. Kettlebell)</td></tr>
         <tr><td style="${td}">muscleGroup</td><td style="${td}">Text</td><td style="${td}">Muskelgruppe (z.B. Schulter)</td></tr>
       </table>
