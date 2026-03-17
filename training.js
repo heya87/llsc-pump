@@ -1,6 +1,14 @@
 // ============================================================
 // TRAINING SCREEN
 // ============================================================
+let _pauseAccumulatedMs = 0;
+let _pauseStartTime = null;
+let _skipPhase = null;
+let _jumpToStation = null;
+let _prevStation = null;
+let _nextStation = null;
+let _render = null;
+
 function renderTrainingSetup() {
   readSettings();
   stopTraining();
@@ -92,6 +100,8 @@ async function startTraining() {
   let remaining = phases[currentPhase].duration;
   trainingRunning = true;
   trainingPaused = false;
+  _pauseAccumulatedMs = 0;
+  _pauseStartTime = null;
 
   // Drift-corrected timer: track when the phase started
   let phaseStartTime = Date.now();
@@ -101,9 +111,17 @@ async function startTraining() {
 
   function render() {
     const phase = phases[currentPhase];
-    const total = phases.length;
-    const progress = ((currentPhase / total) * 100).toFixed(1);
     const ex = phase.exercise;
+    const stationStops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
+    const stationIdx = stationStops.indexOf(phase.stop);
+    const stationProgressRow = `
+      <div class="station-progress-row">
+        <button class="station-nav-btn" onclick="prevStation()" ${stationIdx <= 0 ? 'disabled' : ''}>&#8592;</button>
+        <div class="station-chips">
+          ${stationStops.map(s => `<button class="station-chip${s === phase.stop ? ' active' : ''}" onclick="jumpToStation(${s})">${s + 1}</button>`).join('')}
+        </div>
+        <button class="station-nav-btn" onclick="nextStation()" ${stationIdx >= stationStops.length - 1 ? 'disabled' : ''}>&#8594;</button>
+      </div>`;
 
     const phaseClass = phase.type === 'work' ? 'phase-work' : phase.type === 'break' ? 'phase-break' : 'phase-transition';
     const phaseLabel = phase.type === 'work'
@@ -135,7 +153,7 @@ async function startTraining() {
 
     document.getElementById('trainingContent').innerHTML = `
       <div class="training-display">
-        <div class="training-progress"><div class="training-progress-bar" style="width:${progress}%"></div></div>
+        ${stationProgressRow}
         <div class="training-phase ${phaseClass}">${esc(phaseLabel)}</div>
         <div class="training-stop-info">Station ${phase.stop + 1} von ${settings.stops}</div>
         <div class="training-timer ${phaseClass}">${remaining}</div>
@@ -164,7 +182,7 @@ async function startTraining() {
         `}
         <div class="training-controls">
           <button class="btn ${trainingPaused ? 'btn-success' : 'btn-warning'}" onclick="togglePause()">
-            ${trainingPaused ? 'Weiter' : 'Pause'}
+            ${trainingPaused ? 'Fortsetzen' : 'Pause'}
           </button>
           <button class="btn btn-danger" onclick="stopTraining();renderTrainingSetup();">Stop</button>
         </div>
@@ -180,8 +198,8 @@ async function startTraining() {
       return;
     }
 
-    // Drift-corrected: calculate remaining from elapsed wall-clock time
-    const elapsed = Math.floor((Date.now() - phaseStartTime) / 1000);
+    // Drift-corrected: calculate remaining from elapsed wall-clock time (minus pause)
+    const elapsed = Math.floor((Date.now() - phaseStartTime - _pauseAccumulatedMs) / 1000);
     remaining = Math.max(0, phaseStartRemaining - elapsed);
 
     // Beep sequence 2 seconds before phase ends
@@ -207,6 +225,8 @@ async function startTraining() {
       remaining = phases[currentPhase].duration;
       phaseStartTime = Date.now();
       phaseStartRemaining = remaining;
+      _pauseAccumulatedMs = 0;
+      _pauseStartTime = null;
       halftimeBeepFired = false;
       endBeepFired = false;
     }
@@ -226,12 +246,97 @@ async function startTraining() {
     trainingTimer = setTimeout(tick, 250); // Check more frequently for drift correction
   }
 
+  _render = render;
+
+  function goToStation(targetStop) {
+    const targetIdx = phases.findIndex(p => p.type === 'work' && p.stop === targetStop);
+    if (targetIdx === -1) return;
+    currentPhase = targetIdx;
+    remaining = phases[currentPhase].duration;
+    phaseStartTime = Date.now();
+    phaseStartRemaining = remaining;
+    _pauseAccumulatedMs = 0;
+    _pauseStartTime = null;
+    halftimeBeepFired = false;
+    endBeepFired = false;
+    render();
+  }
+
+  _prevStation = function() {
+    const stops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
+    const curIdx = stops.indexOf(phases[currentPhase].stop);
+    if (curIdx <= 0) return;
+    goToStation(stops[curIdx - 1]);
+  };
+
+  _nextStation = function() {
+    const stops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
+    const curIdx = stops.indexOf(phases[currentPhase].stop);
+    if (curIdx === -1 || curIdx >= stops.length - 1) return;
+    goToStation(stops[curIdx + 1]);
+  };
+
+  _skipPhase = function() {
+    currentPhase++;
+    if (currentPhase >= phases.length) {
+      trainingRunning = false;
+      releaseWakeLock();
+      _skipPhase = null;
+      _jumpToStation = null;
+      document.getElementById('trainingContent').innerHTML = `
+        <div class="training-finished">
+          <h2>Geschafft!</h2>
+          <p style="color:var(--text-light);margin-bottom:20px">Training abgeschlossen.</p>
+          <button class="btn btn-primary" onclick="renderTrainingSetup()">Zurück</button>
+        </div>
+      `;
+      return;
+    }
+    remaining = phases[currentPhase].duration;
+    phaseStartTime = Date.now();
+    phaseStartRemaining = remaining;
+    _pauseAccumulatedMs = 0;
+    _pauseStartTime = null;
+    halftimeBeepFired = false;
+    endBeepFired = false;
+    render();
+  };
+
+  _jumpToStation = function(targetStop) {
+    goToStation(targetStop);
+  };
+
   render();
   trainingTimer = setTimeout(tick, 250);
 }
 
 function togglePause() {
   trainingPaused = !trainingPaused;
+  if (trainingPaused) {
+    _pauseStartTime = Date.now();
+  } else {
+    if (_pauseStartTime !== null) {
+      _pauseAccumulatedMs += Date.now() - _pauseStartTime;
+      _pauseStartTime = null;
+    }
+  }
+  if (_render) _render();
+}
+
+function skipPhase() {
+  if (_skipPhase) _skipPhase();
+}
+
+function jumpToStation(targetStop) {
+  if (_jumpToStation) _jumpToStation(targetStop);
+}
+
+function prevStation() {
+  if (_prevStation) _prevStation();
+}
+
+function nextStation() {
+  if (_nextStation) _nextStation();
 }
 
 function stopTraining() {
@@ -239,6 +344,13 @@ function stopTraining() {
   trainingPaused = false;
   if (trainingTimer) { clearTimeout(trainingTimer); trainingTimer = null; }
   releaseWakeLock();
+  _skipPhase = null;
+  _jumpToStation = null;
+  _prevStation = null;
+  _nextStation = null;
+  _render = null;
+  _pauseAccumulatedMs = 0;
+  _pauseStartTime = null;
 }
 
 // ============================================================

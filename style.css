@@ -233,6 +233,12 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   text-transform: uppercase;
   margin-bottom: 6px;
 }
+.muscle-warn {
+  color: var(--warning);
+  font-size: 13px;
+  margin-left: 2px;
+  font-style: normal;
+}
 .stop-slots {
   display: flex; gap: 6px;
 }
@@ -267,7 +273,8 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   justify-content: center;
 }
 .slot-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slot.drop-target {
+.slot.drop-target,
+.slot.drag-over {
   border-color: var(--success);
   background: #E4F4EF;
 }
@@ -359,24 +366,69 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   font-size: 13px;
   color: var(--text-light);
 }
+.station-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.station-chips {
+  flex: 1;
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.station-nav-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: white;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: .15s;
+  line-height: 1;
+}
+.station-nav-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #EBF4F9;
+}
+.station-nav-btn:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+.station-chip {
+  min-width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  padding: 0 8px;
+  border: 2px solid var(--border);
+  background: white;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+.station-chip.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+.station-chip:hover:not(.active) {
+  border-color: var(--primary);
+  background: #EBF4F9;
+}
+
 .training-controls {
   display: flex; gap: 8px;
   margin-top: 20px;
 }
 .training-controls .btn { flex: 1; }
-.training-progress {
-  width: 100%;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-.training-progress-bar {
-  height: 100%;
-  background: var(--primary);
-  transition: width .3s;
-}
 .phase-work { color: var(--success); }
 .phase-break { color: var(--warning); }
 .phase-transition { color: var(--danger); }
