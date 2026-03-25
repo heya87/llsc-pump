@@ -8,6 +8,7 @@ let _jumpToStation = null;
 let _prevStation = null;
 let _nextStation = null;
 let _render = null;
+let _lastTrainingPhases = null; // kept after training ends for history saving
 
 function renderTrainingSetup() {
   readSettings();
@@ -90,6 +91,7 @@ function buildPhases() {
 async function startTraining() {
   const phases = buildPhases();
   if (phases.length === 0) return;
+  _lastTrainingPhases = phases;
 
   const trainingImages = {};
   const exIds = [...new Set(phases.filter(p => p.exercise).map(p => p.exercise.id))];
@@ -220,6 +222,7 @@ async function startTraining() {
           <div class="training-finished">
             <h2>Geschafft!</h2>
             <p style="color:var(--text-light);margin-bottom:20px">Training abgeschlossen.</p>
+            <button class="btn btn-success" style="margin-bottom:8px" onclick="saveTrainingHistory(_lastTrainingPhases)">Training speichern</button>
             <button class="btn btn-primary" onclick="renderTrainingSetup()">Zurück</button>
           </div>
         `;

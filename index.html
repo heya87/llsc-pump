@@ -15,6 +15,7 @@
   <button id="navImport" class="active" onclick="showScreen('import')">Übungen</button>
   <button id="navPlanner" disabled onclick="showScreen('planner')">Setup</button>
   <button id="navTraining" disabled onclick="showScreen('training')">Training</button>
+  <button id="navStats" onclick="showScreen('stats')">Statistik</button>
 </nav>
 
 <!-- ==================== IMPORT ==================== -->
@@ -172,6 +173,12 @@
   <div id="trainingContent"></div>
 </div>
 
+<!-- ==================== STATS ==================== -->
+<div id="screen-stats" class="screen screen-stats">
+  <h2 style="margin-bottom:16px">Statistik</h2>
+  <div id="historyContent"></div>
+</div>
+
 <div id="mobilePicker" class="mobile-picker">
   <div class="mobile-picker-header">
     <span id="mobilePickerTitle">Übung wählen</span>
@@ -196,6 +203,7 @@
 <script src="planner.js"></script>
 <script src="training.js"></script>
 <script src="favourites.js"></script>
+<script src="history.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

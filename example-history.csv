@@ -1,0 +1,67 @@
+session_id;date;exercise_id;exercise_name;muscle_group;tools
+2026-03-23T17:28:02.309Z;2026-03-23;1;Liegestütze;Brust;
+2026-03-23T17:28:02.309Z;2026-03-23;2;Squads mit Kettlebell;Quadrizeps;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;3;Hangen;Latissimus;Balken
+2026-03-23T17:28:02.309Z;2026-03-23;4;Beine anziehen;Bauch;
+2026-03-23T17:28:02.309Z;2026-03-23;5;Terraband Schulter 1 Links;Schulter;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;6;Terraband Schulter 1 Rechts;Schulter;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;7;Bulgarian Split Squats Links;Quadrizeps;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;8;Bulgarian Split Squats Rechts;Quadrizeps;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;9;Kettlebell Rudern Links;Latissimus;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;10;Kettlebell Rudern Rechts;Latissimus;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;11;Plank mit Schulterklopfen;Core;
+2026-03-23T17:28:02.309Z;2026-03-23;12;Terraband Schulter 2 Links;Schulter;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;13;Terraband Schulter 2 Rechts;Schulter;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;14;Bridgeing Links;Gesäss;
+2026-03-23T17:28:02.309Z;2026-03-23;15;Bridgeing Rechts;Gesäss;
+2026-03-23T17:28:02.309Z;2026-03-23;16;Terraband Bizeps Curls;Bizeps;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;17;Mountain Climbers;Core;
+2026-03-23T17:28:02.309Z;2026-03-23;18;Terraband Schulter 3;Schulter;Terraband
+2026-03-23T17:28:02.309Z;2026-03-23;19;Muschel Links;Gesäss;
+2026-03-23T17:28:02.309Z;2026-03-23;20;Muschel Rechts;Gesäss;
+2026-03-23T17:28:02.309Z;2026-03-23;21;Kettlebell Swings;Gesäss;Kettlebell
+2026-03-23T17:28:02.309Z;2026-03-23;22;Seitliche Plank Links;Core;
+2026-03-25T13:03:27.637Z;2026-03-25;26;Springen;Quadrizeps;Sockel
+2026-03-25T13:03:27.637Z;2026-03-25;2;Squads mit Kettlebell;Quadrizeps;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;28;Schulter ziehn;Core;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;27;Russian Twists mit Kettlebell;Core;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;5;Terraband Schulter 1 Links;Schulter;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;6;Terraband Schulter 1 Rechts;Schulter;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;7;Bulgarian Split Squats Links;Quadrizeps;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;8;Bulgarian Split Squats Rechts;Quadrizeps;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;9;Kettlebell Rudern Links;Latissimus;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;10;Kettlebell Rudern Rechts;Latissimus;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;11;Plank mit Schulterklopfen;Core;
+2026-03-25T13:03:27.637Z;2026-03-25;12;Terraband Schulter 2 Links;Schulter;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;13;Terraband Schulter 2 Rechts;Schulter;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;14;Bridgeing Links;Gesäss;
+2026-03-25T13:03:27.637Z;2026-03-25;15;Bridgeing Rechts;Gesäss;
+2026-03-25T13:03:27.637Z;2026-03-25;16;Terraband Bizeps Curls;Bizeps;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;17;Mountain Climbers;Core;
+2026-03-25T13:03:27.637Z;2026-03-25;18;Terraband Schulter 3;Schulter;Terraband
+2026-03-25T13:03:27.637Z;2026-03-25;19;Muschel Links;Gesäss;
+2026-03-25T13:03:27.637Z;2026-03-25;20;Muschel Rechts;Gesäss;
+2026-03-25T13:03:27.637Z;2026-03-25;21;Kettlebell Swings;Gesäss;Kettlebell
+2026-03-25T13:03:27.637Z;2026-03-25;22;Seitliche Plank Links;Core;
+2026-03-25T13:10:10.885Z;2026-03-25;26;Springen;Quadrizeps;Sockel
+2026-03-25T13:10:10.885Z;2026-03-25;2;Squads mit Kettlebell;Quadrizeps;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;28;Schulter ziehn;Core;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;27;Russian Twists mit Kettlebell;Core;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;5;Terraband Schulter 1 Links;Schulter;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;6;Terraband Schulter 1 Rechts;Schulter;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;7;Bulgarian Split Squats Links;Quadrizeps;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;8;Bulgarian Split Squats Rechts;Quadrizeps;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;9;Kettlebell Rudern Links;Latissimus;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;10;Kettlebell Rudern Rechts;Latissimus;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;11;Plank mit Schulterklopfen;Core;
+2026-03-25T13:10:10.885Z;2026-03-25;12;Terraband Schulter 2 Links;Schulter;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;13;Terraband Schulter 2 Rechts;Schulter;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;14;Bridgeing Links;Gesäss;
+2026-03-25T13:10:10.885Z;2026-03-25;15;Bridgeing Rechts;Gesäss;
+2026-03-25T13:10:10.885Z;2026-03-25;16;Terraband Bizeps Curls;Bizeps;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;17;Mountain Climbers;Core;
+2026-03-25T13:10:10.885Z;2026-03-25;18;Terraband Schulter 3;Schulter;Terraband
+2026-03-25T13:10:10.885Z;2026-03-25;19;Muschel Links;Gesäss;
+2026-03-25T13:10:10.885Z;2026-03-25;20;Muschel Rechts;Gesäss;
+2026-03-25T13:10:10.885Z;2026-03-25;21;Kettlebell Swings;Gesäss;Kettlebell
+2026-03-25T13:10:10.885Z;2026-03-25;22;Seitliche Plank Links;Core;
