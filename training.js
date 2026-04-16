@@ -9,6 +9,7 @@ let _prevStation = null;
 let _nextStation = null;
 let _render = null;
 let _lastTrainingPhases = null; // kept after training ends for history saving
+let _contentClickHandler = null; // event delegation handler
 
 function renderTrainingSetup() {
   readSettings();
@@ -68,7 +69,7 @@ function buildPhases() {
     const stopExercises = [ex1, ex2].filter(Boolean);
     stopExercises.forEach((ex, exIdx) => {
       const sideLabel = isPerStation ? (exIdx === 0 ? 'Seite 1' : 'Seite 2') : null;
-      phases.push({ type: 'work', exercise: ex, stop: s, duration: settings.workTime, sideLabel });
+      phases.push({ type: 'work', exercise: ex, stop: s, slotIdx: exIdx, duration: settings.workTime, sideLabel });
 
       const isLastExInStop = exIdx === stopExercises.length - 1;
       if (isLastExInStop) {
@@ -86,6 +87,44 @@ function buildPhases() {
     });
   }
   return phases;
+}
+
+function _buildStationChipsHTML(phases, currentPhase) {
+  const phase = phases[currentPhase];
+  const stationStops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
+  const stopSlotCount = {};
+  for (const p of phases) {
+    if (p.type === 'work') stopSlotCount[p.stop] = (stopSlotCount[p.stop] || 0) + 1;
+  }
+
+  return stationStops.map((s, idx) => {
+    const slotCount = stopSlotCount[s] || 1;
+    const isCurrentStop = s === phase.stop;
+    const slot1Active = isCurrentStop && phase.type === 'work' && phase.slotIdx === 0;
+    const breakActive  = isCurrentStop && phase.type === 'break';
+    const slot2Active  = isCurrentStop && phase.type === 'work' && phase.slotIdx === 1;
+    const transActive  = isCurrentStop && phase.type === 'transition';
+    const anyActive    = slot1Active || breakActive || slot2Active;
+
+    let chipHTML;
+    if (slotCount === 1) {
+      chipHTML = `<div class="station-sub-chip${slot1Active ? ' active' : ''}" data-action="jump" data-stop="${s}">${s + 1}</div>`;
+    } else {
+      // 3-part pill: left wing | number | right wing
+      chipHTML = `
+        <div class="station-pill${anyActive ? ' current-station' : ''}" data-action="jump" data-stop="${s}">
+          <div class="station-pill-left${slot1Active ? ' active' : ''}"></div>
+          <div class="station-pill-center${breakActive ? ' active' : ''}">${s + 1}</div>
+          <div class="station-pill-right${slot2Active ? ' active' : ''}"></div>
+        </div>`;
+    }
+
+    const transitionDot = idx < stationStops.length - 1
+      ? `<div class="station-transition-dot${transActive ? ' active' : ''}"></div>`
+      : '';
+
+    return chipHTML + transitionDot;
+  }).join('') + `<div class="station-sub-chip station-finish-chip">🎉</div>`;
 }
 
 async function startTraining() {
@@ -113,38 +152,36 @@ async function startTraining() {
   let phaseStartRemaining = remaining;
   let halftimeBeepFired = false;
   let endBeepFired = false;
+  let lastRenderedPhase = -1;
 
-  function render() {
-    const phase = phases[currentPhase];
+  // Event delegation: one stable listener on trainingContent handles all button clicks
+  const contentEl = document.getElementById('trainingContent');
+  _contentClickHandler = function(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'pause') togglePause();
+    else if (action === 'stop') { stopTraining(); renderTrainingSetup(); }
+    else if (action === 'prev') prevStation();
+    else if (action === 'next') nextStation();
+    else if (action === 'jump') jumpToStation(+btn.dataset.stop);
+  };
+  contentEl.addEventListener('click', _contentClickHandler);
+
+  function doFullRender(phase) {
     const ex = phase.exercise;
     const stationStops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
     const stationIdx = stationStops.indexOf(phase.stop);
-    const stationProgressRow = `
-      <div class="station-progress-row">
-        <button class="station-nav-btn" onclick="prevStation()" ${stationIdx <= 0 ? 'disabled' : ''}>&#8592;</button>
-        <div class="station-chips">
-          ${stationStops.map(s => `<button class="station-chip${s === phase.stop ? ' active' : ''}" onclick="jumpToStation(${s})">${s + 1}</button>`).join('')}
-        </div>
-        <button class="station-nav-btn" onclick="nextStation()" ${stationIdx >= stationStops.length - 1 ? 'disabled' : ''}>&#8594;</button>
-      </div>`;
 
     const phaseClass = phase.type === 'work' ? 'phase-work' : phase.type === 'break' ? 'phase-break' : 'phase-transition';
     const phaseLabel = phase.type === 'work'
       ? (phase.sideLabel ? `Training – ${phase.sideLabel}` : 'Training')
       : (phase.label || 'Pause');
-
-    let switchHint = '';
-    if (phase.type === 'work' && ex && ex.mode === 'switch_per_exercise') {
-      const half = Math.ceil(phase.duration / 2);
-      if (remaining <= half && remaining > half - 3) {
-        switchHint = '<div class="switch-hint">Seitenwechsel!</div>';
-      }
-    }
+    const phaseIcon = phase.type === 'work' ? '🏋🏾' : phase.type === 'break' ? '🧘🏾' : '🚶🏾';
 
     // Look ahead for next exercise to show during breaks
-    let nextEx = null;
-    let nextExImg = null;
-    if (phase.type !== 'work') {
+    let nextEx = null, nextExImg = null;
+    if (!ex) {
       for (let i = currentPhase + 1; i < phases.length; i++) {
         if (phases[i].type === 'work' && phases[i].exercise) {
           nextEx = phases[i].exercise;
@@ -156,12 +193,19 @@ async function startTraining() {
 
     const exImgUrl = ex ? trainingImages[ex.id] : null;
 
-    document.getElementById('trainingContent').innerHTML = `
+    contentEl.innerHTML = `
       <div class="training-display">
-        ${stationProgressRow}
+        <div class="station-progress-row">
+          <button class="station-nav-btn" data-action="prev" ${stationIdx <= 0 ? 'disabled' : ''}>&#8592;</button>
+          <div class="station-chips" id="t-station-chips">
+            ${_buildStationChipsHTML(phases, currentPhase)}
+          </div>
+          <button class="station-nav-btn" data-action="next" ${stationIdx >= stationStops.length - 1 ? 'disabled' : ''}>&#8594;</button>
+        </div>
+        <div class="training-phase-icon ${phaseClass}">${phaseIcon}</div>
         <div class="training-phase ${phaseClass}">${esc(phaseLabel)}</div>
         <div class="training-stop-info">Station ${phase.stop + 1} von ${settings.stops}</div>
-        <div class="training-timer ${phaseClass}">${remaining}</div>
+        <div class="training-timer ${phaseClass}" id="t-timer">${remaining}</div>
         ${ex ? `
           <div class="training-exercise-name">${esc(ex.name)}</div>
           ${exImgUrl ? `<img class="training-image" src="${exImgUrl}" alt="${esc(ex.name)}">` : ''}
@@ -170,12 +214,12 @@ async function startTraining() {
             ${modeLabel(ex.mode) ? `<span class="training-tag">${modeLabel(ex.mode)}</span>` : ''}
             ${ex.tools ? `<span class="training-tag">${esc(ex.tools)}</span>` : ''}
           </div>
-          ${switchHint}
+          <div id="t-switch-hint" class="switch-hint"></div>
         ` : `
           ${nextEx ? `
-            <div style="opacity:.45;margin-top:8px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);margin-bottom:8px">Nächste Übung</div>
-              <div class="training-exercise-name" style="font-size:20px">${esc(nextEx.name)}</div>
+            <div class="training-next-section">
+              <div class="training-next-label">Nächste Übung</div>
+              <div class="training-exercise-name training-next-name">${esc(nextEx.name)}</div>
               ${nextExImg ? `<img class="training-image" src="${nextExImg}" alt="${esc(nextEx.name)}" style="max-height:25vh">` : ''}
               ${nextEx.description ? `<div class="training-description">${esc(nextEx.description)}</div>` : ''}
               <div class="training-meta">
@@ -186,14 +230,46 @@ async function startTraining() {
           ` : `<div class="training-exercise-name">${esc(phaseLabel)}</div>`}
         `}
         <div class="training-controls">
-          <button class="btn ${trainingPaused ? 'btn-success' : 'btn-warning'}" onclick="togglePause()">
+          <button class="btn ${trainingPaused ? 'btn-success' : 'btn-warning'}" id="t-pause-btn" data-action="pause">
             ${trainingPaused ? 'Fortsetzen' : 'Pause'}
           </button>
-          <button class="btn btn-danger" onclick="stopTraining();renderTrainingSetup();">Stop</button>
+          <button class="btn btn-danger" data-action="stop">Stop</button>
         </div>
         <div class="wakelock-note">Display bleibt aktiv</div>
       </div>
     `;
+
+    // Scroll active chip into view
+    const activeChip = contentEl.querySelector('.station-sub-chip.active');
+    if (activeChip) activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+
+  function render() {
+    const phase = phases[currentPhase];
+
+    // Full re-render only on phase change
+    if (currentPhase !== lastRenderedPhase) {
+      lastRenderedPhase = currentPhase;
+      doFullRender(phase);
+      return;
+    }
+
+    // Tick-only updates
+    const timerEl = document.getElementById('t-timer');
+    if (timerEl) timerEl.textContent = remaining;
+
+    const pauseBtn = document.getElementById('t-pause-btn');
+    if (pauseBtn) {
+      pauseBtn.textContent = trainingPaused ? 'Fortsetzen' : 'Pause';
+      pauseBtn.className = `btn ${trainingPaused ? 'btn-success' : 'btn-warning'}`;
+    }
+
+    // Switch hint mid-phase
+    const hintEl = document.getElementById('t-switch-hint');
+    if (hintEl && phase.type === 'work' && phase.exercise && phase.exercise.mode === 'switch_per_exercise') {
+      const half = Math.ceil(phase.duration / 2);
+      hintEl.textContent = (remaining <= half && remaining > half - 3) ? 'Seitenwechsel!' : '';
+    }
   }
 
   function tick() {
@@ -357,6 +433,11 @@ function stopTraining() {
   _render = null;
   _pauseAccumulatedMs = 0;
   _pauseStartTime = null;
+  if (_contentClickHandler) {
+    const el = document.getElementById('trainingContent');
+    if (el) el.removeEventListener('click', _contentClickHandler);
+    _contentClickHandler = null;
+  }
 }
 
 // ============================================================

@@ -343,6 +343,15 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   text-align: center;
   padding: 20px 0;
 }
+.training-phase-icon {
+  font-size: 72px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.training-phase-icon.phase-work { color: var(--success); }
+.training-phase-icon.phase-break { color: var(--warning); }
+.training-phase-icon.phase-transition { color: var(--danger); }
+
 .training-phase {
   font-size: 14px;
   font-weight: 700;
@@ -363,9 +372,28 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   margin: 16px 0;
 }
 .training-exercise-name {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   margin-bottom: 8px;
+}
+/* Next-exercise section (replaces old opacity hack) */
+.training-next-section {
+  margin-top: 8px;
+}
+.training-next-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-light);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 12px;
+  margin-bottom: 10px;
+}
+.training-next-name {
+  font-size: 26px;
 }
 .training-description {
   font-size: 16px;
@@ -396,10 +424,17 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .station-chips {
   flex: 1;
   display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 0;
+  justify-content: space-evenly;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  padding: 2px 4px;
+  scrollbar-width: none;
 }
+.station-chips::-webkit-scrollbar { display: none; }
+
+
 .station-nav-btn {
   width: 36px; height: 36px;
   border-radius: 50%;
@@ -422,27 +457,97 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   opacity: .3;
   cursor: not-allowed;
 }
-.station-chip {
-  min-width: 30px;
-  height: 30px;
-  border-radius: 15px;
-  padding: 0 8px;
+
+/* Single-slot station chip */
+.station-sub-chip {
+  height: 20px;
+  min-width: 20px;
+  padding: 0 5px;
   border: 2px solid var(--border);
   background: white;
   color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   cursor: pointer;
   transition: .15s;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.station-chip.active {
+.station-sub-chip.active {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
 }
-.station-chip:hover:not(.active) {
-  border-color: var(--primary);
-  background: #EBF4F9;
+.station-sub-chip:hover:not(.active) { border-color: var(--primary); }
+
+/* 3-part pill for dual-slot stations */
+.station-pill {
+  display: inline-flex;
+  align-items: stretch;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: white;
+  cursor: pointer;
+  transition: border-color .15s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.station-pill.current-station { border-color: var(--primary); }
+.station-pill:hover { border-color: var(--primary); }
+
+.station-pill-left,
+.station-pill-right {
+  width: 14px;
+  flex-shrink: 0;
+  background: transparent;
+  transition: background .15s;
+}
+.station-pill-left  { border-right: 1px solid var(--border); }
+.station-pill-right { border-left:  1px solid var(--border); }
+
+.station-pill-center {
+  padding: 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background .15s, color .15s;
+  min-width: 14px;
+}
+.station-pill-left.active   { background: var(--primary); }
+.station-pill-right.active  { background: var(--primary); }
+.station-pill-center.active { background: var(--warning); color: white; }
+
+.station-finish-chip {
+  min-width: 48px;
+  cursor: default;
+}
+
+/* Ring between stations (transition indicator) */
+.station-transition-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+  margin: 0 3px;
+  transition: background .15s, border-color .15s;
+}
+.station-transition-dot.active {
+  border-color: var(--danger);
+  background: var(--danger);
 }
 
 .training-controls {
@@ -893,6 +998,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
    ============================================================ */
 @media (min-width: 900px) {
   #screen-planner { max-width: 1100px; }
+  #screen-training { max-width: 900px; }
   .mobile-picker { display: none !important; }
   .planner-hint-mobile { display: none !important; }
 
