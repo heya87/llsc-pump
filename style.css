@@ -434,6 +434,37 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .station-chips::-webkit-scrollbar { display: none; }
 
+.station-chip-group { display: contents; }
+
+@media (max-width: 899px) {
+  .station-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    position: relative;
+    overflow-x: unset;
+  }
+  .station-chip-group,
+  .station-transition-dot { display: none !important; }
+
+  .chip-group-prev    { display: flex !important; grid-column: 1; justify-content: center; }
+  .chip-group-current { display: flex !important; grid-column: 2; justify-content: center; }
+  .chip-group-next    { display: flex !important; grid-column: 3; justify-content: center; }
+  .is-last-station .chip-group-finish { display: flex !important; grid-column: 3; justify-content: center; }
+
+  /* Dots are absolutely placed at the column boundaries (1/3 and 2/3),
+     which is exactly the midpoint between adjacent pill centers */
+  .dot-before-current,
+  .dot-after-current {
+    display: block !important;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+  }
+  .dot-before-current { left: 33.33%; }
+  .dot-after-current  { left: 66.67%; }
+}
 
 .station-nav-btn {
   width: 36px; height: 36px;

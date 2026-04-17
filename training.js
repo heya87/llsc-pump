@@ -97,6 +97,8 @@ function _buildStationChipsHTML(phases, currentPhase) {
     if (p.type === 'work') stopSlotCount[p.stop] = (stopSlotCount[p.stop] || 0) + 1;
   }
 
+  const currentStopIdx = stationStops.indexOf(phase.stop);
+
   return stationStops.map((s, idx) => {
     const slotCount = stopSlotCount[s] || 1;
     const isCurrentStop = s === phase.stop;
@@ -119,12 +121,16 @@ function _buildStationChipsHTML(phases, currentPhase) {
         </div>`;
     }
 
+    const rel = idx - currentStopIdx;
+    const relClass = rel === 0 ? ' chip-group-current' : rel === -1 ? ' chip-group-prev' : rel === 1 ? ' chip-group-next' : '';
+    // Dot class encodes which gap it sits in (used for mobile grid placement)
+    const dotClass = rel === -1 ? ' dot-before-current' : rel === 0 ? ' dot-after-current' : '';
     const transitionDot = idx < stationStops.length - 1
-      ? `<div class="station-transition-dot${transActive ? ' active' : ''}"></div>`
+      ? `<div class="station-transition-dot${dotClass}${transActive ? ' active' : ''}"></div>`
       : '';
-
-    return chipHTML + transitionDot;
-  }).join('') + `<div class="station-sub-chip station-finish-chip">🎉</div>`;
+    // Dot is a sibling of the chip group (not a child) so it can be placed independently in the mobile grid
+    return `<span class="station-chip-group${relClass}">${chipHTML}</span>${transitionDot}`;
+  }).join('') + `<span class="station-chip-group chip-group-finish"><div class="station-sub-chip station-finish-chip">🎉</div></span>`;
 }
 
 async function startTraining() {
@@ -197,7 +203,7 @@ async function startTraining() {
       <div class="training-display">
         <div class="station-progress-row">
           <button class="station-nav-btn" data-action="prev" ${stationIdx <= 0 ? 'disabled' : ''}>&#8592;</button>
-          <div class="station-chips" id="t-station-chips">
+          <div class="station-chips${stationIdx >= stationStops.length - 1 ? ' is-last-station' : ''}" id="t-station-chips">
             ${_buildStationChipsHTML(phases, currentPhase)}
           </div>
           <button class="station-nav-btn" data-action="next" ${stationIdx >= stationStops.length - 1 ? 'disabled' : ''}>&#8594;</button>
