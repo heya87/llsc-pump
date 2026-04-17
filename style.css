@@ -614,6 +614,21 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   text-align: center; margin-top: 8px;
 }
 
+.mute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px auto 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: white;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.mute-btn:hover { border-color: var(--primary); background: #EBF4F9; }
+.mute-btn.muted { border-color: var(--danger); background: #FEF2F2; }
+
 .form-row {
   margin-bottom: 8px;
 }
