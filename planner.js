@@ -9,7 +9,7 @@ function renderPlanner() {
 }
 
 function renderLegends() {
-  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
+  const muscles = [...new Set(exercises.flatMap(e => getMuscleGroups(e)))].sort();
   const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
   renderFilterPanel('legends', muscles, tools, activeMuscleFilters, activeToolFilters, 'toggleMuscleFilter', 'toggleToolFilter', 'resetPlannerFilters');
 }
@@ -71,7 +71,7 @@ function renderPool() {
 
   const filtered = exercises.filter(ex => {
     if (usedIds.has(ex.id)) return false;
-    if (activeMuscleFilters.size > 0 && !activeMuscleFilters.has(ex.muscleGroup)) return false;
+    if (activeMuscleFilters.size > 0 && !getMuscleGroups(ex).some(g => activeMuscleFilters.has(g))) return false;
     if (activeToolFilters.size > 0 && !activeToolFilters.has(ex.tools)) return false;
     return true;
   });
@@ -79,7 +79,7 @@ function renderPool() {
   pool.innerHTML = filtered.map(ex => {
     const isSelected = selectedExerciseId === ex.id;
     const dualBadge = ex.mode === 'switch_per_station' ? '<span class="dual-slot-badge">×2</span>' : '';
-    return `<span class="pool-item${isSelected ? ' selected' : ''}" draggable="true" ondragstart="dragFromPool(event,${ex.id})" onclick="handlePoolTap(${ex.id})">${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span>${dualBadge}</span>`;
+    return `<span class="pool-item${isSelected ? ' selected' : ''}" draggable="true" ondragstart="dragFromPool(event,${ex.id})" onclick="handlePoolTap(${ex.id})"${ex.description ? ` title="${esc(ex.description)}"` : ''}>${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}<span class="pool-item-name">${ex.id}. ${esc(ex.name)}</span>${dualBadge}</span>`;
   }).join('');
 
   updateSelectionBar();
@@ -172,7 +172,7 @@ function slotHtml(ex, stop, slot) {
   const dropAttrs = `ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropOnSlot(event,${stop},${slot})"`;
   if (!ex) return `<div class="slot" onclick="slotClick(${stop},${slot})" ${dropAttrs}>Slot ${slot + 1}</div>`;
   const sideLabel = ex.mode === 'switch_per_station' ? `<span class="slot-side-label">Seite ${slot + 1}</span>` : '';
-  return `<div class="slot filled" draggable="true" ondragstart="dragFromSlot(event,${stop},${slot})" onclick="slotClick(${stop},${slot})" ${dropAttrs}>
+  return `<div class="slot filled" draggable="true" ondragstart="dragFromSlot(event,${stop},${slot})" onclick="slotClick(${stop},${slot})"${ex.description ? ` title="${esc(ex.description)}"` : ''} ${dropAttrs}>
     <div class="slot-content">
       ${muscleBadgeHtml(ex)}${toolBadgeHtml(ex)}
       <span class="slot-name">${esc(ex.name)}</span>${sideLabel}
@@ -247,7 +247,7 @@ function closeMobilePicker() {
 }
 
 function renderPickerFilters() {
-  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
+  const muscles = [...new Set(exercises.flatMap(e => getMuscleGroups(e)))].sort();
   const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
   renderFilterPanel('mobilePickerFilters', muscles, tools,
     pickerMuscleFilters, pickerToolFilters,
@@ -263,7 +263,7 @@ function renderPickerExercises() {
   const filtered = exercises.filter(ex => {
     if (usedIds.has(ex.id)) return false;
     if (pickerSearchText && !ex.name.toLowerCase().includes(pickerSearchText)) return false;
-    if (pickerMuscleFilters.size > 0 && !pickerMuscleFilters.has(ex.muscleGroup)) return false;
+    if (pickerMuscleFilters.size > 0 && !getMuscleGroups(ex).some(g => pickerMuscleFilters.has(g))) return false;
     if (pickerToolFilters.size > 0 && !pickerToolFilters.has(ex.tools)) return false;
     return true;
   });
@@ -402,8 +402,7 @@ function stationHasMuscleConflict(s) {
   const muscleAt = (stop) => {
     const ex1 = getPlannedExercise(stop, 0);
     const ex2 = getPlannedExercise(stop, 1);
-    const groups = [ex1?.muscleGroup, ex2?.muscleGroup].filter(Boolean);
-    return groups;
+    return [ex1, ex2].flatMap(ex => getMuscleGroups(ex));
   };
   const cur = muscleAt(s);
   if (cur.length === 0) return false;
@@ -490,21 +489,20 @@ async function exportStationSheets() {
 
   function exBlock(ex, label) {
     if (!ex) return `<div class="ex-half empty"><div class="empty-label">${label}: nicht belegt</div></div>`;
-    const mc = getMuscleColor(ex.muscleGroup);
+    const mGroups = getMuscleGroups(ex);
     const tc = getToolColor(ex.tools);
     const ta = getToolAbbrev(ex.tools);
-    const ma = getToolAbbrev(ex.muscleGroup);
     const imgUrl = printImages[ex.id];
     return `
       <div class="ex-half">
         <div class="ex-header">
           <div class="ex-title">
-            ${ex.muscleGroup ? `<span class="print-muscle-badge" style="background:${mc}">${ma}</span>` : ''}
+            ${mGroups.map(g => `<span class="print-muscle-badge" style="background:${getMuscleColor(g)}">${getToolAbbrev(g)}</span>`).join('')}
             ${ex.tools ? `<span class="print-tool-badge" style="background:${tc}">${ta}</span>` : ''}
             ${esc(ex.name)}
           </div>
           <div class="ex-tags">
-            ${ex.muscleGroup ? `<span class="tag" style="background:${mc}20;border-color:${mc};color:${mc}">${esc(ex.muscleGroup)}</span>` : ''}
+            ${mGroups.map(g => `<span class="tag" style="background:${getMuscleColor(g)}20;border-color:${getMuscleColor(g)};color:${getMuscleColor(g)}">${esc(g)}</span>`).join('')}
             ${ex.tools ? `<span class="tag">${esc(ex.tools)}</span>` : ''}
             ${modeLabel(ex.mode) ? `<span class="tag">${modeLabel(ex.mode)}</span>` : ''}
           </div>

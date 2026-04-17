@@ -74,7 +74,7 @@ function renderImportFilters() {
   if (exercises.length === 0) { section.style.display = 'none'; return; }
   section.style.display = '';
 
-  const muscles = [...new Set(exercises.map(e => e.muscleGroup).filter(Boolean))].sort();
+  const muscles = [...new Set(exercises.flatMap(e => getMuscleGroups(e)))].sort();
   const tools   = [...new Set(exercises.map(e => e.tools).filter(Boolean))].sort();
   renderFilterPanel('importFilterChips', muscles, tools, importMuscleFilters, importToolFilters, 'toggleImportMuscleFilter', 'toggleImportToolFilter', 'resetImportFilters');
 }
@@ -182,7 +182,7 @@ async function renderImportedExercises() {
 
   const filtered = exercises.filter(ex => {
     if (importSearchText && !ex.name.toLowerCase().includes(importSearchText)) return false;
-    if (importMuscleFilters.size > 0 && !importMuscleFilters.has(ex.muscleGroup)) return false;
+    if (importMuscleFilters.size > 0 && !getMuscleGroups(ex).some(g => importMuscleFilters.has(g))) return false;
     if (importToolFilters.size > 0 && !importToolFilters.has(ex.tools)) return false;
     return true;
   });

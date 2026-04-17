@@ -74,11 +74,17 @@ function toolBadgeHtml(ex) {
   return `<span class="tool-badge" style="background:${getToolColor(ex.tools)}" title="${esc(ex.tools)}">${getToolAbbrev(ex.tools)}</span>`;
 }
 
+function getMuscleGroups(ex) {
+  if (!ex || !ex.muscleGroup) return [];
+  return ex.muscleGroup.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function muscleBadgeHtml(ex) {
-  if (!ex || !ex.muscleGroup) return '';
-  const mc = getMuscleColor(ex.muscleGroup);
-  const abbrev = getToolAbbrev(ex.muscleGroup);
-  return `<span class="muscle-badge" style="background:${mc}" title="${esc(ex.muscleGroup)}">${abbrev}</span>`;
+  return getMuscleGroups(ex).map(g => {
+    const mc = getMuscleColor(g);
+    const abbrev = getToolAbbrev(g);
+    return `<span class="muscle-badge" style="background:${mc}" title="${esc(g)}">${abbrev}</span>`;
+  }).join('');
 }
 
 // ============================================================
