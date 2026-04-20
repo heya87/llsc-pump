@@ -59,6 +59,7 @@ const CSVProvider = {
         mode: normalizeMode((cols[3] || '').trim()),
         tools: (cols[4] || '').trim(),
         muscleGroup: (cols[5] || '').trim(),
+        hasWeight: (cols[6] || '').trim() === '1',
         image: null
       });
     }
@@ -158,9 +159,9 @@ function _csvEscape(val) {
 }
 
 function buildCSVString() {
-  const header = 'id;name;description;mode;tools;muscleGroup';
+  const header = 'id;name;description;mode;tools;muscleGroup;hasWeight';
   const rows = exercises.map(ex =>
-    [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup)].join(';')
+    [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup), ex.hasWeight ? '1' : '0'].join(';')
   );
   return [header, ...rows].join('\n');
 }
@@ -261,6 +262,92 @@ const MetaStore = {
       value === null ? tx.objectStore('meta').delete(key) : tx.objectStore('meta').put(value, key);
       tx.oncomplete = resolve;
       tx.onerror = () => resolve();
+    });
+  }
+};
+
+// ============================================================
+// WEIGHT LOG STORE (IndexedDB)
+// ============================================================
+const WeightStore = {
+  _db: null,
+
+  open() {
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('llsc_weights', 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        const store = db.createObjectStore('weightLog', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('exerciseId', 'exerciseId', { unique: false });
+      };
+      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
+      req.onerror = e => reject(e);
+    });
+  },
+
+  async save(exerciseId, weightKg) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('weightLog', 'readwrite');
+      tx.objectStore('weightLog').add({ exerciseId, weightKg, date: new Date().toISOString() });
+      tx.oncomplete = resolve;
+      tx.onerror = e => reject(e);
+    });
+  },
+
+  async getLatest(exerciseId) {
+    const history = await this.getHistory(exerciseId);
+    return history.length > 0 ? history[history.length - 1] : null;
+  },
+
+  async getLatestMap(exerciseIds) {
+    const db = await this.open();
+    const result = {};
+    await Promise.all(exerciseIds.map(id => new Promise(resolve => {
+      const tx = db.transaction('weightLog', 'readonly');
+      const index = tx.objectStore('weightLog').index('exerciseId');
+      const req = index.getAll(id);
+      req.onsuccess = () => {
+        const entries = req.result;
+        if (entries.length > 0) result[id] = entries[entries.length - 1];
+        resolve();
+      };
+      req.onerror = () => resolve();
+    })));
+    return result;
+  },
+
+  async getHistory(exerciseId) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('weightLog', 'readonly');
+      const req = tx.objectStore('weightLog').index('exerciseId').getAll(exerciseId);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = e => reject(e);
+    });
+  },
+
+  async getAll() {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('weightLog', 'readonly');
+      const req = tx.objectStore('weightLog').getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = e => reject(e);
+    });
+  },
+
+  async deleteByExercise(exerciseId) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('weightLog', 'readwrite');
+      const req = tx.objectStore('weightLog').index('exerciseId').getAllKeys(exerciseId);
+      req.onsuccess = () => {
+        for (const key of req.result) tx.objectStore('weightLog').delete(key);
+        tx.oncomplete = resolve;
+      };
+      tx.onerror = e => reject(e);
     });
   }
 };

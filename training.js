@@ -12,7 +12,7 @@ let _lastTrainingPhases = null; // kept after training ends for history saving
 let _contentClickHandler = null; // event delegation handler
 let trainingMuted = false;
 
-function renderTrainingSetup() {
+async function renderTrainingSetup() {
   readSettings();
   stopTraining();
 
@@ -40,12 +40,33 @@ function renderTrainingSetup() {
     const st = filledStops[i];
     const exCount = (st.ex1 ? 1 : 0) + (st.ex2 ? 1 : 0);
     totalSec += exCount * settings.workTime;
-    // Short break between the two exercises at the same stop
     if (exCount === 2) totalSec += settings.shortBreak;
-    // Between stops: long break
     if (i < filledStops.length - 1) totalSec += settings.longBreak;
   }
   const totalMin = Math.ceil(totalSec / 60);
+
+  const weightExercises = [];
+  for (const st of filledStops) {
+    for (const ex of [st.ex1, st.ex2]) {
+      if (ex && ex.hasWeight && !weightExercises.find(e => e.id === ex.id)) weightExercises.push(ex);
+    }
+  }
+
+  let weightOverviewHtml = '';
+  if (weightExercises.length > 0) {
+    const weightMap = await WeightStore.getLatestMap(weightExercises.map(e => e.id));
+    weightOverviewHtml = `
+      <div class="weight-overview">
+        <div class="weight-overview-title">Gewichte</div>
+        ${weightExercises.map(ex => `
+          <div class="weight-overview-row">
+            <span class="weight-overview-name">${esc(ex.name)}</span>
+            <span class="weight-overview-val">${weightMap[ex.id] ? weightMap[ex.id].weightKg + ' kg' : '—'}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
 
   document.getElementById('trainingContent').innerHTML = `
     <div class="training-finished">
@@ -54,6 +75,7 @@ function renderTrainingSetup() {
       <p style="color:var(--text-light);margin-bottom:20px">
         ${settings.workTime}s Training / ${settings.shortBreak}s Pause / ${settings.longBreak}s Wechsel
       </p>
+      ${weightOverviewHtml}
       <button class="btn btn-success" onclick="startTraining()">Training starten</button>
     </div>
   `;
@@ -145,6 +167,21 @@ async function startTraining() {
     trainingImages[id] = await getExerciseImageUrl(id);
   }));
 
+  const weightExIds = exIds.filter(id => phases.find(p => p.exercise && p.exercise.id === id && p.exercise.hasWeight));
+  const trainingWeights = await WeightStore.getLatestMap(weightExIds);
+  const committedWeights = {}; // last value actually written to IDB this session
+
+  function maybeSaveWeight(phaseIdx) {
+    const p = phases[phaseIdx];
+    if (!p || p.type !== 'work' || !p.exercise || !p.exercise.hasWeight) return;
+    const exId = p.exercise.id;
+    const entry = trainingWeights[exId];
+    if (!entry) return;
+    if (committedWeights[exId] === entry.weightKg) return;
+    committedWeights[exId] = entry.weightKg;
+    WeightStore.save(exId, entry.weightKg);
+  }
+
   requestWakeLock();
 
   let currentPhase = 0;
@@ -172,6 +209,15 @@ async function startTraining() {
     else if (action === 'prev') prevStation();
     else if (action === 'next') nextStation();
     else if (action === 'jump') jumpToStation(+btn.dataset.stop);
+    else if (action === 'weight-inc' || action === 'weight-dec') {
+      const curEx = phases[currentPhase].exercise;
+      if (!curEx || !curEx.hasWeight) return;
+      const current = trainingWeights[curEx.id] ? trainingWeights[curEx.id].weightKg : 0;
+      const newVal = Math.max(0, +(current + (action === 'weight-inc' ? 0.5 : -0.5)).toFixed(1));
+      trainingWeights[curEx.id] = { exerciseId: curEx.id, weightKg: newVal, date: new Date().toISOString() };
+      const valEl = document.getElementById('t-weight-val');
+      if (valEl) valEl.value = newVal;
+    }
     else if (action === 'mute') {
       trainingMuted = !trainingMuted;
       const muteBtn = document.querySelector('.mute-btn');
@@ -226,6 +272,18 @@ async function startTraining() {
         <div class="training-timer ${phaseClass}" id="t-timer">${remaining}</div>
         ${ex ? `
           <div class="training-exercise-name">${esc(ex.name)}</div>
+          ${ex.hasWeight ? `
+            <div class="training-weight-ctrl">
+              <button class="weight-step-btn" data-action="weight-dec">−</button>
+              <div class="weight-value-wrap">
+                <input type="number" class="training-weight-val" id="t-weight-val"
+                  min="0" step="0.5" placeholder="—"
+                  value="${trainingWeights[ex.id] ? trainingWeights[ex.id].weightKg : ''}">
+                <span class="training-weight-unit">kg</span>
+              </div>
+              <button class="weight-step-btn" data-action="weight-inc">+</button>
+            </div>
+          ` : ''}
           ${exImgUrl ? `<img class="training-image" src="${exImgUrl}" alt="${esc(ex.name)}">` : ''}
           ${ex.description ? `<div class="training-description">${esc(ex.description)}</div>` : ''}
           <div class="training-meta">
@@ -238,6 +296,7 @@ async function startTraining() {
             <div class="training-next-section">
               <div class="training-next-label">Nächste Übung</div>
               <div class="training-exercise-name training-next-name">${esc(nextEx.name)}</div>
+              ${nextEx.hasWeight ? `<div class="training-next-weight">${trainingWeights[nextEx.id] ? trainingWeights[nextEx.id].weightKg + ' kg' : '—'}</div>` : ''}
               ${nextExImg ? `<img class="training-image" src="${nextExImg}" alt="${esc(nextEx.name)}" style="max-height:25vh">` : ''}
               ${nextEx.description ? `<div class="training-description">${esc(nextEx.description)}</div>` : ''}
               <div class="training-meta">
@@ -266,6 +325,16 @@ async function startTraining() {
     // Scroll active chip into view
     const activeChip = contentEl.querySelector('.station-sub-chip.active');
     if (activeChip) activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    const weightInput = document.getElementById('t-weight-val');
+    if (weightInput) {
+      weightInput.addEventListener('change', () => {
+        const val = parseFloat(weightInput.value);
+        if (isNaN(val) || val < 0) return;
+        const curEx = phases[currentPhase].exercise;
+        trainingWeights[curEx.id] = { exerciseId: curEx.id, weightKg: val, date: new Date().toISOString() };
+      });
+    }
   }
 
   function render() {
@@ -314,6 +383,7 @@ async function startTraining() {
     }
 
     if (remaining <= 0) {
+      maybeSaveWeight(currentPhase);
       currentPhase++;
       if (currentPhase >= phases.length) {
         trainingRunning = false;
@@ -357,6 +427,7 @@ async function startTraining() {
   function goToStation(targetStop) {
     const targetIdx = phases.findIndex(p => p.type === 'work' && p.stop === targetStop);
     if (targetIdx === -1) return;
+    maybeSaveWeight(currentPhase);
     currentPhase = targetIdx;
     remaining = phases[currentPhase].duration;
     phaseStartTime = Date.now();
@@ -383,6 +454,7 @@ async function startTraining() {
   };
 
   _skipPhase = function() {
+    maybeSaveWeight(currentPhase);
     currentPhase++;
     if (currentPhase >= phases.length) {
       trainingRunning = false;

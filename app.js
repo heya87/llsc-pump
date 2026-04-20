@@ -211,6 +211,7 @@ async function renderImportedExercises() {
           ${modeLabel(ex.mode)}
           ${ex.tools ? ' | ' + ex.tools : ''}
           ${ex.muscleGroup ? ' | ' + ex.muscleGroup : ''}
+          ${ex.hasWeight ? ' | ⚖️ Gewicht' : ''}
         </div>
       </div>
       <div class="ex-actions">
@@ -259,6 +260,7 @@ function resetForm() {
   document.getElementById('addMode').selectedIndex = 0;
   document.getElementById('addTools').value = '';
   document.getElementById('addMuscle').value = '';
+  document.getElementById('addHasWeight').checked = false;
   document.getElementById('formTitle').textContent = 'Übung hinzufügen';
   document.getElementById('formSubmitBtn').textContent = 'Hinzufügen';
   resetFormImage();
@@ -280,6 +282,7 @@ async function submitExerciseForm() {
       ex.mode = document.getElementById('addMode').value;
       ex.tools = document.getElementById('addTools').value.trim();
       ex.muscleGroup = document.getElementById('addMuscle').value.trim();
+      ex.hasWeight = document.getElementById('addHasWeight').checked;
     }
     targetId = editId;
   } else {
@@ -291,6 +294,7 @@ async function submitExerciseForm() {
       mode: document.getElementById('addMode').value,
       tools: document.getElementById('addTools').value.trim(),
       muscleGroup: document.getElementById('addMuscle').value.trim(),
+      hasWeight: document.getElementById('addHasWeight').checked,
       image: null
     });
   }
@@ -316,6 +320,7 @@ async function editExercise(id) {
   document.getElementById('addMode').value = ex.mode || 'no_switch';
   document.getElementById('addTools').value = ex.tools;
   document.getElementById('addMuscle').value = ex.muscleGroup;
+  document.getElementById('addHasWeight').checked = !!ex.hasWeight;
   document.getElementById('formTitle').textContent = 'Übung bearbeiten (#' + ex.id + ')';
   document.getElementById('formSubmitBtn').textContent = 'Speichern';
 
@@ -365,11 +370,11 @@ function saveExercises() {
 // IMPORT / EXPORT DIALOGS
 // ============================================================
 function showImportHelp() {
-  const csvExample = `id;name;description;mode;tools;muscleGroup
-1;Liegestütze;Arme schulterbreit;no_switch;;Brust
-2;Ausfallschritt;Links/rechts wechseln;switch_per_exercise;;Beine
-3;Einbeiniges Kreuzheben;;switch_per_station;Kettlebell;Beine
-4;Schulterdrücken;;no_switch;Kettlebell;Schulter`;
+  const csvExample = `id;name;description;mode;tools;muscleGroup;hasWeight
+1;Liegestütze;Arme schulterbreit;no_switch;;Brust;0
+2;Ausfallschritt;Links/rechts wechseln;switch_per_exercise;;Beine;0
+3;Einbeiniges Kreuzheben;;switch_per_station;Kettlebell;Beine;1
+4;Schulterdrücken;;no_switch;Kettlebell;Schulter;1`;
 
   const td = 'padding:4px 8px;border:1px solid var(--border)';
   const th = td + ';font-weight:600;background:var(--bg)';
@@ -388,6 +393,7 @@ function showImportHelp() {
         <tr><td style="${td}">mode</td><td style="${td}"><code style="font-size:11px">no_switch</code><br><code style="font-size:11px">switch_per_exercise</code><br><code style="font-size:11px">switch_per_station</code></td><td style="${td}">Kein Wechsel / Seitenwechsel pro Übung (halbe Zeit) / Seitenwechsel pro Station (belegt beide Slots)</td></tr>
         <tr><td style="${td}">tools</td><td style="${td}">Text</td><td style="${td}">Gerät (z.B. Kettlebell)</td></tr>
         <tr><td style="${td}">muscleGroup</td><td style="${td}">Text</td><td style="${td}">Muskelgruppe (z.B. Schulter)</td></tr>
+        <tr><td style="${td}">hasWeight</td><td style="${td}"><code style="font-size:11px">0</code> / <code style="font-size:11px">1</code></td><td style="${td}">Gewicht tracken (1 = ja, 0 = nein, optional)</td></tr>
       </table>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <p style="font-size:13px;font-weight:600">Beispiel:</p>

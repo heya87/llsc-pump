@@ -361,18 +361,63 @@ function getRecentlyDoneExerciseIds(n) {
   return ids;
 }
 
+async function deleteWeightHistory(exerciseId) {
+  await WeightStore.deleteByExercise(exerciseId);
+  renderHistoryScreen();
+}
+
+function _buildWeightSectionHTML(weightByEx, titleStyle) {
+  const weightExIds = Object.keys(weightByEx).map(Number);
+  if (weightExIds.length === 0) return '';
+  const cards = weightExIds.map(exId => {
+    const exName = exercises.find(e => e.id === exId)?.name || `#${exId}`;
+    const entries = weightByEx[exId].slice().sort((a, b) => a.date.localeCompare(b.date));
+    const maxKg = Math.max(...entries.map(e => e.weightKg));
+    const rows = entries.map(e => `
+      <div class="weight-hist-row">
+        <span class="weight-hist-date">${_fmtDate(e.date.slice(0, 10))}</span>
+        <div class="weight-hist-bar-wrap">
+          <div class="weight-hist-bar" style="width:${Math.round(e.weightKg / maxKg * 100)}%"></div>
+        </div>
+        <span class="weight-hist-val">${e.weightKg} kg</span>
+      </div>
+    `).join('');
+    return `
+      <div class="weight-hist-card">
+        <div class="weight-hist-name">
+          <span>${esc(exName)}</span>
+          <button class="weight-hist-delete" onclick="deleteWeightHistory(${exId})" title="Verlauf löschen"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v1H4v2h1l1 14h12l1-14h1V4h-5V3H9zm0 5h2v9H9V8zm4 0h2v9h-2V8z"/></svg></button>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }).join('');
+  return `
+    <h3 class="hist-col-title" style="${titleStyle}">Gewichtsentwicklung</h3>
+    <div class="weight-hist-list">${cards}</div>
+  `;
+}
+
 // ---- Render statistics screen ----
-function renderHistoryScreen() {
+async function renderHistoryScreen() {
   const container = document.getElementById('historyContent');
   if (!container) return;
 
   if (!_historyData.length) {
+    const allWeightEntries = await WeightStore.getAll();
+    const weightByEx = {};
+    for (const entry of allWeightEntries) {
+      if (!weightByEx[entry.exerciseId]) weightByEx[entry.exerciseId] = [];
+      weightByEx[entry.exerciseId].push(entry);
+    }
+    const weightSectionHTML = _buildWeightSectionHTML(weightByEx, 'margin-bottom:12px');
     container.innerHTML = `
-      <div style="text-align:center;padding:40px 0">
+      <div style="text-align:center;padding:40px 0 20px">
         <p style="color:var(--text-light);margin-bottom:16px">Noch keine Trainingsdaten geladen.</p>
         <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="loadHistoryFiles()">CSV öffnen</button>
         <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="reloadLastHistoryFile()">Zuletzt geöffnete Datei laden</button>
       </div>
+      ${weightSectionHTML}
     `;
     return;
   }
@@ -444,6 +489,15 @@ function renderHistoryScreen() {
     </div>
   `).join('');
 
+  // Weight progression section
+  const allWeightEntries = await WeightStore.getAll();
+  const weightByEx = {};
+  for (const entry of allWeightEntries) {
+    if (!weightByEx[entry.exerciseId]) weightByEx[entry.exerciseId] = [];
+    weightByEx[entry.exerciseId].push(entry);
+  }
+  const weightSectionHTML = _buildWeightSectionHTML(weightByEx, 'margin-top:20px');
+
   container.innerHTML = `
     <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="reloadLastHistoryFile()">Aktualisieren</button>
@@ -459,6 +513,7 @@ function renderHistoryScreen() {
         <div class="hist-freq-list">${exFreqHTML}</div>
         <h3 class="hist-col-title" style="margin-top:20px">Muskelgruppen</h3>
         <div class="hist-freq-list">${muscleFreqHTML}</div>
+        ${weightSectionHTML}
       </div>
     </div>
   `;
