@@ -12,6 +12,12 @@ let _lastTrainingPhases = null; // kept after training ends for history saving
 let _contentClickHandler = null; // event delegation handler
 let trainingMuted = false;
 
+function _saveSetupWeight(exId, val) {
+  const kg = parseFloat(val);
+  if (isNaN(kg) || kg < 0) return;
+  WeightStore.save(exId, kg);
+}
+
 async function renderTrainingSetup() {
   readSettings();
   stopTraining();
@@ -58,12 +64,23 @@ async function renderTrainingSetup() {
     weightOverviewHtml = `
       <div class="weight-overview">
         <div class="weight-overview-title">Gewichte</div>
-        ${weightExercises.map(ex => `
-          <div class="weight-overview-row">
-            <span class="weight-overview-name">${esc(ex.name)}</span>
-            <span class="weight-overview-val">${weightMap[ex.id] ? weightMap[ex.id].weightKg + ' kg' : '—'}</span>
-          </div>
-        `).join('')}
+        ${weightExercises.flatMap(ex => {
+          const cur = weightMap[ex.id] ? weightMap[ex.id].weightKg : '';
+          const title = ex.description ? ` title="${esc(ex.description)}"` : '';
+          const input = `<div class="weight-overview-input-wrap">
+            <input type="number" class="weight-overview-input" min="0" step="0.5" placeholder="—"
+              value="${cur}" data-ex-id="${ex.id}"
+              onchange="_saveSetupWeight(${ex.id}, this.value)">
+            <span class="weight-overview-unit">kg</span>
+          </div>`;
+          if (ex.mode === 'switch_per_station') {
+            return [
+              `<div class="weight-overview-row"${title}><span class="weight-overview-name">${esc(ex.name)} (Links)</span>${input}</div>`,
+              `<div class="weight-overview-row"${title}><span class="weight-overview-name">${esc(ex.name)} (Rechts)</span>${input}</div>`
+            ];
+          }
+          return [`<div class="weight-overview-row"${title}><span class="weight-overview-name">${esc(ex.name)}</span>${input}</div>`];
+        }).join('')}
       </div>
     `;
   }
@@ -91,7 +108,7 @@ function buildPhases() {
     const isPerStation = ex1 && ex2 && ex1.id === ex2.id && ex1.mode === 'switch_per_station';
     const stopExercises = [ex1, ex2].filter(Boolean);
     stopExercises.forEach((ex, exIdx) => {
-      const sideLabel = isPerStation ? (exIdx === 0 ? 'Seite 1' : 'Seite 2') : null;
+      const sideLabel = ex.mode === 'switch_per_station' ? (exIdx === 0 ? 'Links' : 'Rechts') : null;
       phases.push({ type: 'work', exercise: ex, stop: s, slotIdx: exIdx, duration: settings.workTime, sideLabel });
 
       const isLastExInStop = exIdx === stopExercises.length - 1;
@@ -237,19 +254,21 @@ async function startTraining() {
     const stationStops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
     const stationIdx = stationStops.indexOf(phase.stop);
 
+    const sideLabel = ex && ex.mode === 'switch_per_station' ? (phase.slotIdx === 0 ? 'Links' : 'Rechts') : null;
     const phaseClass = phase.type === 'work' ? 'phase-work' : phase.type === 'break' ? 'phase-break' : 'phase-transition';
     const phaseLabel = phase.type === 'work'
-      ? (phase.sideLabel ? `Training – ${phase.sideLabel}` : 'Training')
+      ? (sideLabel ? `Training – ${sideLabel}` : 'Training')
       : (phase.label || 'Pause');
     const phaseIcon = phase.type === 'work' ? '🏋🏾' : phase.type === 'break' ? '🧘🏾' : '🚶🏾';
 
     // Look ahead for next exercise to show during breaks
-    let nextEx = null, nextExImg = null;
+    let nextEx = null, nextExImg = null, nextSideLabel = null;
     if (!ex) {
       for (let i = currentPhase + 1; i < phases.length; i++) {
         if (phases[i].type === 'work' && phases[i].exercise) {
           nextEx = phases[i].exercise;
           nextExImg = trainingImages[nextEx.id];
+          if (nextEx.mode === 'switch_per_station') nextSideLabel = phases[i].slotIdx === 0 ? 'Links' : 'Rechts';
           break;
         }
       }
@@ -260,18 +279,18 @@ async function startTraining() {
     contentEl.innerHTML = `
       <div class="training-display">
         <div class="station-progress-row">
-          <button class="station-nav-btn" data-action="prev" ${stationIdx <= 0 ? 'disabled' : ''}>&#8592;</button>
+          <button class="station-nav-btn" data-action="prev" ${currentPhase <= 0 ? 'disabled' : ''}>&#8592;</button>
           <div class="station-chips${stationIdx >= stationStops.length - 1 ? ' is-last-station' : ''}" id="t-station-chips">
             ${_buildStationChipsHTML(phases, currentPhase)}
           </div>
-          <button class="station-nav-btn" data-action="next" ${stationIdx >= stationStops.length - 1 ? 'disabled' : ''}>&#8594;</button>
+          <button class="station-nav-btn" data-action="next" ${currentPhase >= phases.length - 1 ? 'disabled' : ''}>&#8594;</button>
         </div>
         <div class="training-phase-icon ${phaseClass}">${phaseIcon}</div>
         <div class="training-phase ${phaseClass}">${esc(phaseLabel)}</div>
         <div class="training-stop-info">Station ${phase.stop + 1} von ${settings.stops}</div>
         <div class="training-timer ${phaseClass}" id="t-timer">${remaining}</div>
         ${ex ? `
-          <div class="training-exercise-name">${esc(ex.name)}</div>
+          <div class="training-exercise-name">${esc(ex.name)}${sideLabel ? `<br><span style="font-size:.6em;font-weight:600;color:var(--primary);letter-spacing:1px;text-transform:uppercase">${sideLabel}</span>` : ''}</div>
           ${ex.hasWeight ? `
             <div class="training-weight-ctrl">
               <button class="weight-step-btn" data-action="weight-dec">−</button>
@@ -295,7 +314,7 @@ async function startTraining() {
           ${nextEx ? `
             <div class="training-next-section">
               <div class="training-next-label">Nächste Übung</div>
-              <div class="training-exercise-name training-next-name">${esc(nextEx.name)}</div>
+              <div class="training-exercise-name training-next-name">${esc(nextEx.name)}${nextSideLabel ? `<br><span style="font-size:.6em;font-weight:600;color:var(--primary);letter-spacing:1px;text-transform:uppercase">${nextSideLabel}</span>` : ''}</div>
               ${nextEx.hasWeight ? `<div class="training-next-weight">${trainingWeights[nextEx.id] ? trainingWeights[nextEx.id].weightKg + ' kg' : '—'}</div>` : ''}
               ${nextExImg ? `<img class="training-image" src="${nextExImg}" alt="${esc(nextEx.name)}" style="max-height:25vh">` : ''}
               ${nextEx.description ? `<div class="training-description">${esc(nextEx.description)}</div>` : ''}
@@ -439,18 +458,28 @@ async function startTraining() {
     render();
   }
 
+  function goToPhase(idx) {
+    if (idx < 0 || idx >= phases.length) return;
+    maybeSaveWeight(currentPhase);
+    currentPhase = idx;
+    remaining = phases[currentPhase].duration;
+    phaseStartTime = Date.now();
+    phaseStartRemaining = remaining;
+    _pauseAccumulatedMs = 0;
+    _pauseStartTime = null;
+    halftimeBeepFired = false;
+    endBeepFired = false;
+    render();
+  }
+
   _prevStation = function() {
-    const stops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
-    const curIdx = stops.indexOf(phases[currentPhase].stop);
-    if (curIdx <= 0) return;
-    goToStation(stops[curIdx - 1]);
+    if (currentPhase <= 0) return;
+    goToPhase(currentPhase - 1);
   };
 
   _nextStation = function() {
-    const stops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
-    const curIdx = stops.indexOf(phases[currentPhase].stop);
-    if (curIdx === -1 || curIdx >= stops.length - 1) return;
-    goToStation(stops[curIdx + 1]);
+    if (currentPhase >= phases.length - 1) return;
+    goToPhase(currentPhase + 1);
   };
 
   _skipPhase = function() {

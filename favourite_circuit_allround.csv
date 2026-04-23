@@ -1,0 +1,23 @@
+name;station;slot;exercise_id;exercise_name
+Circuit Allround;1;1;2;Goblet Squats
+Circuit Allround;1;2;1;Push-ups
+Circuit Allround;2;1;40;Pull-ups
+Circuit Allround;2;2;3;Dead Hang
+Circuit Allround;3;1;7;Bulgarian Split Squats
+Circuit Allround;3;2;7;Bulgarian Split Squats
+Circuit Allround;4;1;38;Single-Arm Kettlebell Push Press
+Circuit Allround;4;2;38;Single-Arm Kettlebell Push Press
+Circuit Allround;5;1;11;Plank Shoulder Taps
+Circuit Allround;5;2;17;Mountain Climbers
+Circuit Allround;6;1;9;One-Arm Kettlebell Row
+Circuit Allround;6;2;9;One-Arm Kettlebell Row
+Circuit Allround;7;1;42;Single-Leg Romanian Deadlift
+Circuit Allround;7;2;42;Single-Leg Romanian Deadlift
+Circuit Allround;8;1;12;Terraband External Rotation
+Circuit Allround;8;2;12;Terraband External Rotation
+Circuit Allround;9;1;21;Kettlebell Swings
+Circuit Allround;9;2;4;Lying Leg Raises
+Circuit Allround;10;1;37;Wall Kickback Hold
+Circuit Allround;10;2;37;Wall Kickback Hold
+Circuit Allround;11;1;44;Pallof Press
+Circuit Allround;11;2;44;Pallof Press

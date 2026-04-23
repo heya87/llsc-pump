@@ -418,23 +418,28 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .station-progress-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 16px;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 2px 8px;
+  box-sizing: border-box;
 }
+
 .station-chips {
-  flex: 1;
+  flex: 0 0 auto;
+  max-width: calc(100vw - 128px);
   display: flex;
-  gap: 0;
-  justify-content: space-evenly;
-  flex-wrap: nowrap;
+  gap: 4px;
   align-items: center;
+  flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 2px 4px;
   scrollbar-width: none;
 }
 .station-chips::-webkit-scrollbar { display: none; }
 
-.station-chip-group { display: contents; }
+.station-chip-group { display: inline-flex; align-items: center; flex-shrink: 0; }
 
 @media (max-width: 899px) {
   .station-chips {
@@ -467,12 +472,12 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 }
 
 .station-nav-btn {
-  width: 36px; height: 36px;
+  width: 48px; height: 48px;
   border-radius: 50%;
   border: 2px solid var(--border);
   background: white;
   color: var(--text);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
@@ -491,17 +496,17 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 
 /* Single-slot station chip */
 .station-sub-chip {
-  height: 20px;
-  min-width: 20px;
-  padding: 0 5px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 7px;
   border: 2px solid var(--border);
   background: white;
   color: var(--text);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: .15s;
-  border-radius: 10px;
+  border-radius: 14px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -520,9 +525,9 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .station-pill {
   display: inline-flex;
   align-items: stretch;
-  height: 20px;
+  height: 28px;
   border: 2px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   flex-shrink: 0;
   background: white;
@@ -536,7 +541,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 
 .station-pill-left,
 .station-pill-right {
-  width: 14px;
+  width: 18px;
   flex-shrink: 0;
   background: transparent;
   transition: background .15s;
@@ -545,8 +550,8 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .station-pill-right { border-left:  1px solid var(--border); }
 
 .station-pill-center {
-  padding: 0 2px;
-  font-size: 10px;
+  padding: 0 4px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
   display: flex;
@@ -554,7 +559,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   justify-content: center;
   background: transparent;
   transition: background .15s, color .15s;
-  min-width: 14px;
+  min-width: 18px;
 }
 .station-pill-left.active   { background: var(--primary); }
 .station-pill-right.active  { background: var(--primary); }
@@ -567,13 +572,13 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 
 /* Ring between stations (transition indicator) */
 .station-transition-dot {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--border);
   background: transparent;
   flex-shrink: 0;
-  margin: 0 3px;
+  margin: 0 4px;
   transition: background .15s, border-color .15s;
 }
 .station-transition-dot.active {
@@ -666,7 +671,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 
 .weight-overview {
   margin: 0 auto 20px;
-  max-width: 280px;
+  max-width: 420px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -693,6 +698,20 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 .weight-overview-row:last-child { border-bottom: none; }
 .weight-overview-name { color: var(--text); }
 .weight-overview-val { font-weight: 700; color: var(--primary); }
+.weight-overview-input-wrap { display: flex; align-items: center; gap: 4px; }
+.weight-overview-input {
+  width: 72px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: right;
+  font-family: inherit;
+}
+.weight-overview-input:focus { outline: none; border-color: var(--primary); }
+.weight-overview-unit { font-size: 12px; color: var(--text-light); }
 
 /* keep screen awake note */
 .wakelock-note {
