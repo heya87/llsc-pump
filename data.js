@@ -97,7 +97,7 @@ const CSVProvider = {
     return rows;
   },
 
-  _parseLine(line) {
+  _parseLine(line, delimiter = ';') {
     const result = [];
     let current = '';
     let inQuotes = false;
@@ -110,7 +110,7 @@ const CSVProvider = {
         } else {
           inQuotes = !inQuotes;
         }
-      } else if (ch === ';' && !inQuotes) {
+      } else if (ch === delimiter && !inQuotes) {
         result.push(current);
         current = '';
       } else {
@@ -150,9 +150,9 @@ DataSource.setProvider(CSVProvider);
 // ============================================================
 // CSV EXPORT — proper escaping for all fields
 // ============================================================
-function _csvEscape(val) {
+function _csvEscape(val, delimiter = ';') {
   if (!val) return '';
-  if (val.includes(';') || val.includes('"') || val.includes('\n')) {
+  if (val.includes(delimiter) || val.includes('"') || val.includes('\n')) {
     return '"' + val.replace(/"/g, '""') + '"';
   }
   return val;

@@ -113,12 +113,21 @@ function buildPhases() {
 
       const isLastExInStop = exIdx === stopExercises.length - 1;
       if (isLastExInStop) {
-        let moreStops = false;
+        let nextStop = -1;
         for (let ns = s + 1; ns < settings.stops; ns++) {
-          if (getPlannedExercise(ns, 0) || getPlannedExercise(ns, 1)) { moreStops = true; break; }
+          if (getPlannedExercise(ns, 0) || getPlannedExercise(ns, 1)) { nextStop = ns; break; }
         }
-        if (moreStops) {
-          phases.push({ type: 'transition', exercise: null, stop: s, duration: settings.longBreak, label: 'Stationswechsel' });
+        if (nextStop !== -1) {
+          const nEx1 = getPlannedExercise(nextStop, 0);
+          const nEx2 = getPlannedExercise(nextStop, 1);
+          // Same exercise pairing repeated at the next station (e.g. addWithSets) = just the
+          // next set, not a real station change: short break instead of Stationswechsel.
+          const sameExercise = (ex1 ? ex1.id : null) === (nEx1 ? nEx1.id : null) && (ex2 ? ex2.id : null) === (nEx2 ? nEx2.id : null);
+          if (sameExercise) {
+            phases.push({ type: 'break', exercise: null, stop: s, duration: settings.shortBreak, label: 'Nächster Satz' });
+          } else {
+            phases.push({ type: 'transition', exercise: null, stop: s, duration: settings.longBreak, label: 'Stationswechsel' });
+          }
         }
       } else {
         const breakLabel = isPerStation ? 'Seitenwechsel' : 'Nächste Übung';
@@ -132,51 +141,70 @@ function buildPhases() {
 function _buildStationChipsHTML(phases, currentPhase) {
   const phase = phases[currentPhase];
   const stationStops = [...new Set(phases.filter(p => p.type === 'work').map(p => p.stop))];
-  const stopSlotCount = {};
-  for (const p of phases) {
-    if (p.type === 'work') stopSlotCount[p.stop] = (stopSlotCount[p.stop] || 0) + 1;
+
+  // Group consecutive stations with the identical exercise pairing (e.g. repeated
+  // sets of the same strength exercise) into one tile (box).
+  const blocks = [];
+  for (const s of stationStops) {
+    const ex1 = getPlannedExercise(s, 0);
+    const ex2 = getPlannedExercise(s, 1);
+    const key = `${ex1 ? ex1.id : ''}|${ex2 ? ex2.id : ''}`;
+    const last = blocks[blocks.length - 1];
+    if (last && last.key === key) last.stops.push(s);
+    else blocks.push({ key, stops: [s] });
   }
 
-  const currentStopIdx = stationStops.indexOf(phase.stop);
+  const currentBlockIdx = blocks.findIndex(b => b.stops.includes(phase.stop));
 
-  return stationStops.map((s, idx) => {
-    const slotCount = stopSlotCount[s] || 1;
-    const isCurrentStop = s === phase.stop;
-    const slot1Active = isCurrentStop && phase.type === 'work' && phase.slotIdx === 0;
-    const breakActive  = isCurrentStop && phase.type === 'break';
-    const slot2Active  = isCurrentStop && phase.type === 'work' && phase.slotIdx === 1;
-    const transActive  = isCurrentStop && phase.type === 'transition';
-    const anyActive    = slot1Active || breakActive || slot2Active;
+  // Every non-warmup phase (work/break/transition), tagged with its absolute index
+  // so dots can be marked active/done regardless of which block they land in.
+  const indexed = phases.map((p, i) => ({ p, i })).filter(x => x.p.type !== 'warmup');
+  const stateClass = i => i === currentPhase ? ' active' : i < currentPhase ? ' done' : '';
 
-    let chipHTML;
-    if (slotCount === 1) {
-      chipHTML = `<div class="station-sub-chip${slot1Active ? ' active' : ''}" data-action="jump" data-stop="${s}">${s + 1}</div>`;
-    } else {
-      // 3-part pill: left wing | number | right wing
-      chipHTML = `
-        <div class="station-pill${anyActive ? ' current-station' : ''}" data-action="jump" data-stop="${s}">
-          <div class="station-pill-left${slot1Active ? ' active' : ''}"></div>
-          <div class="station-pill-center${breakActive ? ' active' : ''}">${s + 1}</div>
-          <div class="station-pill-right${slot2Active ? ' active' : ''}"></div>
-        </div>`;
-    }
+  const parts = [];
+  blocks.forEach((block, idx) => {
+    const lastStop = block.stops[block.stops.length - 1];
+    const stopSet = new Set(block.stops);
+    // The transition leaving the block's last station belongs between the boxes (rendered
+    // as a standalone "station change" connector), not inside this exercise's box.
+    const boxItems = indexed.filter(x => stopSet.has(x.p.stop) && !(x.p.type === 'transition' && x.p.stop === lastStop));
+    const connector = indexed.find(x => x.p.type === 'transition' && x.p.stop === lastStop);
 
-    const rel = idx - currentStopIdx;
+    const containsCurrent = boxItems.some(x => x.i === currentPhase);
+
+    // Only 'work' and 'break' phases ever land inside a box now — real station changes
+    // (type 'transition') only occur between different exercises, i.e. between boxes.
+    const dotsHtml = boxItems.map(({ p, i }) => {
+      const dotClass = p.type === 'work' ? 'station-dot-rep' : 'station-dot-break';
+      return `<div class="station-dot ${dotClass}${stateClass(i)}" data-action="jump" data-stop="${p.stop}"></div>`;
+    }).join('');
+
+    const rel = idx - currentBlockIdx;
     const relClass = rel === 0 ? ' chip-group-current' : rel === -1 ? ' chip-group-prev' : rel === 1 ? ' chip-group-next' : '';
-    // Dot class encodes which gap it sits in (used for mobile grid placement)
-    const dotClass = rel === -1 ? ' dot-before-current' : rel === 0 ? ' dot-after-current' : '';
-    const transitionDot = idx < stationStops.length - 1
-      ? `<div class="station-transition-dot${dotClass}${transActive ? ' active' : ''}"></div>`
-      : '';
-    // Dot is a sibling of the chip group (not a child) so it can be placed independently in the mobile grid
-    return `<span class="station-chip-group${relClass}">${chipHTML}</span>${transitionDot}`;
-  }).join('') + `<span class="station-chip-group chip-group-finish"><div class="station-sub-chip station-finish-chip">🎉</div></span>`;
+
+    // Simple 1..N label counting the exercises themselves (one number per tile)
+    parts.push(`<span class="station-chip-group${relClass}">
+      <div class="station-tile-wrap">
+        <div class="station-tile${containsCurrent ? ' current-tile' : ''}">${dotsHtml}</div>
+        <div class="station-tile-num">${idx + 1}</div>
+      </div>
+    </span>`);
+
+    if (connector) {
+      parts.push(`<div class="station-inline-wrap"><div class="station-connector${stateClass(connector.i)}" data-action="jump" data-stop="${connector.p.stop}"></div></div>`);
+    }
+  });
+
+  return parts.join('') + `<span class="station-chip-group chip-group-finish"><div class="station-inline-wrap"><div class="station-sub-chip station-finish-chip">🎉</div></div></span>`;
 }
 
 async function startTraining() {
   const phases = buildPhases();
   if (phases.length === 0) return;
-  _lastTrainingPhases = phases;
+  _lastTrainingPhases = phases; // store before warmup so history is clean
+
+  const firstStop = phases.find(p => p.type === 'work')?.stop ?? 0;
+  phases.unshift({ type: 'warmup', duration: 30, label: 'Vorbereitung', stop: firstStop, exercise: null });
 
   const trainingImages = {};
   const exIds = [...new Set(phases.filter(p => p.exercise).map(p => p.exercise.id))];
@@ -259,7 +287,7 @@ async function startTraining() {
     const phaseLabel = phase.type === 'work'
       ? (sideLabel ? `Training – ${sideLabel}` : 'Training')
       : (phase.label || 'Pause');
-    const phaseIcon = phase.type === 'work' ? '🏋🏾' : phase.type === 'break' ? '🧘🏾' : '🚶🏾';
+    const phaseIcon = phase.type === 'work' ? '🏋🏾' : phase.type === 'break' ? '🧘🏾' : phase.type === 'warmup' ? '⏳' : '🚶🏾';
 
     // Look ahead for next exercise to show during breaks
     let nextEx = null, nextExImg = null, nextSideLabel = null;
@@ -342,7 +370,7 @@ async function startTraining() {
     `;
 
     // Scroll active chip into view
-    const activeChip = contentEl.querySelector('.station-sub-chip.active');
+    const activeChip = contentEl.querySelector('.station-dot.active') || contentEl.querySelector('.station-connector.active') || contentEl.querySelector('.current-tile');
     if (activeChip) activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
     const weightInput = document.getElementById('t-weight-val');

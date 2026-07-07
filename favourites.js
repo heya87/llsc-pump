@@ -11,11 +11,11 @@ function _favouritesToCSV(favs) {
   for (const fav of favs) {
     for (const e of fav.plan) {
       rows.push([
-        _csvEscape(fav.name),
+        _csvEscape(fav.name, ','),
         e.stop + 1,
         e.slot + 1,
         e.exerciseId,
-        _csvEscape(e.exerciseName)
+        _csvEscape(e.exerciseName, ',')
       ].join(','));
     }
   }
@@ -28,7 +28,7 @@ function _parseFavouritesCSV(text) {
   if (lines.length < 2) return [];
   const byName = {};
   for (let i = 1; i < lines.length; i++) {
-    const cols = CSVProvider._parseLine(lines[i]);
+    const cols = CSVProvider._parseLine(lines[i], ',');
     if (cols.length < 5) continue;
     const name = cols[0].trim();
     if (!name) continue;

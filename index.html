@@ -202,6 +202,10 @@
 <div id="selectionBar" class="selection-bar">
   <span id="selectionBarName" class="selection-bar-name"></span>
   <button class="btn selection-bar-btn" onclick="addToNextFreeSlot(selectedExerciseId)">+ Nächster freier Slot</button>
+  <div class="selection-bar-sets">
+    <input type="number" id="selectionBarSets" min="1" value="1" title="Anzahl Sätze/Stationen">
+    <button class="btn selection-bar-btn" onclick="addWithSets(selectedExerciseId, parseInt(document.getElementById('selectionBarSets').value,10)||1)">+ Sätze einfügen</button>
+  </div>
 </div>
 
 <script src="utils.js"></script>

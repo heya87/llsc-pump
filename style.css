@@ -417,7 +417,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
 }
 .station-progress-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 8px;
   margin-bottom: 16px;
@@ -432,14 +432,26 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   max-width: calc(100vw - 128px);
   display: flex;
   gap: 4px;
-  align-items: center;
+  align-items: flex-start;
+  /* Nudges the tile/dot row down so its dot-center lines up with the nav
+     buttons' center, regardless of the number label sitting below each tile */
+  padding-top: 11px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .station-chips::-webkit-scrollbar { display: none; }
 
-.station-chip-group { display: inline-flex; align-items: center; flex-shrink: 0; }
+.station-chip-group { display: inline-flex; align-items: flex-start; flex-shrink: 0; }
+
+/* Fixed-height wrapper so standalone dots/chips vertically center at the same
+   line as the dots inside a .station-tile (which sits above its number label) */
+.station-inline-wrap {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  flex-shrink: 0;
+}
 
 @media (max-width: 899px) {
   .station-chips {
@@ -450,25 +462,12 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
     overflow-x: unset;
   }
   .station-chip-group,
-  .station-transition-dot { display: none !important; }
+  .station-connector { display: none !important; }
 
   .chip-group-prev    { display: flex !important; grid-column: 1; justify-content: center; }
   .chip-group-current { display: flex !important; grid-column: 2; justify-content: center; }
   .chip-group-next    { display: flex !important; grid-column: 3; justify-content: center; }
   .is-last-station .chip-group-finish { display: flex !important; grid-column: 3; justify-content: center; }
-
-  /* Dots are absolutely placed at the column boundaries (1/3 and 2/3),
-     which is exactly the midpoint between adjacent pill centers */
-  .dot-before-current,
-  .dot-after-current {
-    display: block !important;
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    margin: 0;
-  }
-  .dot-before-current { left: 33.33%; }
-  .dot-after-current  { left: 66.67%; }
 }
 
 .station-nav-btn {
@@ -494,7 +493,7 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   cursor: not-allowed;
 }
 
-/* Single-slot station chip */
+/* Finish chip (🎉) */
 .station-sub-chip {
   height: 28px;
   min-width: 28px;
@@ -504,8 +503,6 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
-  cursor: pointer;
-  transition: .15s;
   border-radius: 14px;
   flex-shrink: 0;
   display: inline-flex;
@@ -514,76 +511,90 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   user-select: none;
   -webkit-user-select: none;
 }
-.station-sub-chip.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-.station-sub-chip:hover:not(.active) { border-color: var(--primary); }
-
-/* 3-part pill for dual-slot stations */
-.station-pill {
-  display: inline-flex;
-  align-items: stretch;
-  height: 28px;
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: white;
-  cursor: pointer;
-  transition: border-color .15s;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.station-pill.current-station { border-color: var(--primary); }
-.station-pill:hover { border-color: var(--primary); }
-
-.station-pill-left,
-.station-pill-right {
-  width: 18px;
-  flex-shrink: 0;
-  background: transparent;
-  transition: background .15s;
-}
-.station-pill-left  { border-right: 1px solid var(--border); }
-.station-pill-right { border-left:  1px solid var(--border); }
-
-.station-pill-center {
-  padding: 0 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  transition: background .15s, color .15s;
-  min-width: 18px;
-}
-.station-pill-left.active   { background: var(--primary); }
-.station-pill-right.active  { background: var(--primary); }
-.station-pill-center.active { background: var(--warning); color: white; }
-
 .station-finish-chip {
   min-width: 48px;
   cursor: default;
 }
 
-/* Ring between stations (transition indicator) */
-.station-transition-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: transparent;
-  flex-shrink: 0;
-  margin: 0 4px;
-  transition: background .15s, border-color .15s;
+.station-tile-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
-.station-transition-dot.active {
-  border-color: var(--danger);
+.station-tile-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+/* Exercise tile: one boxed pill per contiguous run of stations sharing the same
+   exercise pairing. Big dots = reps, small dots = breaks. */
+.station-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 10px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.station-tile::-webkit-scrollbar { display: none; }
+.station-tile.current-tile { border-color: var(--primary); }
+
+.station-dot {
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity .15s, box-shadow .15s, transform .15s;
+}
+.station-dot-rep {
+  width: 12px;
+  height: 12px;
+  background: var(--success);
+  opacity: .25;
+}
+.station-dot-break {
+  width: 6px;
+  height: 6px;
+  background: var(--warning);
+  opacity: .25;
+}
+.station-dot.done { opacity: 1; }
+.station-dot-rep.active {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--success);
+}
+.station-dot-break.active {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--warning);
+}
+
+/* Standalone circle between two tiles = moving on to the next exercise/station */
+.station-connector {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   background: var(--danger);
+  opacity: .3;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin: 0 2px;
+  transition: opacity .15s, box-shadow .15s, transform .15s;
+}
+.station-connector.done { opacity: 1; }
+.station-connector.active {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--danger);
 }
 
 .training-controls {
@@ -1066,6 +1077,23 @@ nav button:disabled { opacity: .35; cursor: not-allowed; }
   transition: background .15s;
 }
 .selection-bar-btn:hover { background: #e8f4fa; }
+
+.selection-bar-sets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.selection-bar-sets input {
+  width: 44px;
+  padding: 8px 6px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  font-family: inherit;
+}
 
 /* push planner content up when bar is visible */
 #screen-planner.bar-visible { padding-bottom: 68px; }

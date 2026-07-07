@@ -95,6 +95,8 @@ function updateSelectionBar() {
     nameEl.textContent = ex ? (ex.mode === 'switch_per_station' ? `${ex.name} (belegt 2 Slots)` : ex.name) : '';
     bar.classList.add('visible');
     screen.classList.add('bar-visible');
+    const setsInput = document.getElementById('selectionBarSets');
+    if (setsInput) setsInput.value = 1;
   } else {
     bar.classList.remove('visible');
     screen.classList.remove('bar-visible');
@@ -166,6 +168,31 @@ function addToNextFreeSlot(id) {
       }
     }
   }
+}
+
+// Fill `sets` consecutive free stations (both slots) with the same exercise —
+// used for strength-focus workouts that repeat one exercise across several stations.
+function addWithSets(id, sets) {
+  const ex = exercises.find(e => e.id === id);
+  if (!ex) return;
+  const wanted = Math.max(1, sets);
+  let placedStations = 0;
+  for (let s = 0; s < settings.stops && placedStations < wanted; s++) {
+    const slot0 = plan.find(p => p.stop === s && p.slot === 0);
+    const slot1 = plan.find(p => p.stop === s && p.slot === 1);
+    if (!slot0 && !slot1) {
+      plan.push({ stop: s, slot: 0, exerciseId: id });
+      plan.push({ stop: s, slot: 1, exerciseId: id });
+      placedStations++;
+    }
+  }
+  if (placedStations < wanted) {
+    alert(`Nur ${placedStations} von ${wanted} Sätzen platziert – nicht genug freie Stationen.`);
+  }
+  selectedExerciseId = null;
+  savePlan();
+  renderPool();
+  renderStops();
 }
 
 function slotHtml(ex, stop, slot) {
