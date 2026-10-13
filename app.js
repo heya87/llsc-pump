@@ -125,57 +125,10 @@ function enableNav() {
 // ============================================================
 // IMPORT SCREEN
 // ============================================================
-const csvFileInput = document.getElementById('csvFileInput');
-
-csvFileInput.addEventListener('change', e => {
-  handleImportFiles(e.target.files);
-  e.target.value = '';
-});
-document.getElementById('folderInput').addEventListener('change', e => {
-  handleImportFiles(e.target.files);
-  e.target.value = '';
-});
-
-async function handleImportFiles(fileList) {
-  const files = Array.from(fileList);
-  const csvFile = files.find(f => f.name.toLowerCase().endsWith('.csv'));
-  const imageFiles = files.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f.name));
-
-  if (csvFile) {
-    const text = await readFileAsText(csvFile);
-    exercises = CSVProvider.loadFromText(text);
-  }
-
-  let imgCount = 0;
-  for (const imgFile of imageFiles) {
-    const baseName = imgFile.name.replace(/\.[^.]+$/, '');
-    const id = parseInt(baseName, 10);
-    if (!id || isNaN(id)) continue;
-    const dataUrl = await resizeImage(imgFile, 800);
-    await ImageStore.save(id, dataUrl);
-    imgCount++;
-  }
-
-  if (imgCount > 0 || csvFile) {
-    renderImportedExercises();
-    enableNav();
-  }
-}
-
-function readFileAsText(file) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result);
-    reader.readAsText(file);
-  });
-}
-
 // ============================================================
 // EXERCISE LIST RENDERING
 // ============================================================
 async function renderImportedExercises() {
-  document.getElementById('actionRow').style.display = exercises.length > 0 ? '' : 'none';
-
   const imgMap = await ImageStore.getAll();
 
   renderImportFilters();
@@ -203,7 +156,7 @@ async function renderImportedExercises() {
       <div class="ex-num">${ex.id}</div>
       ${hasImg
         ? `<img class="ex-img-thumb" src="${imgMap[ex.id]}" alt="${esc(ex.name)}">`
-        : `<div class="ex-no-img" id="filethumb-${ex.id}">—</div>`}
+        : `<div class="ex-no-img">—</div>`}
       <div class="ex-info">
         <div class="ex-name">${esc(ex.name)}</div>
         ${ex.description ? `<div class="ex-desc">${esc(ex.description)}</div>` : ''}
@@ -220,14 +173,6 @@ async function renderImportedExercises() {
       </div>
     </div>`;
   }).join('');
-
-  filtered.filter(ex => !imgMap[ex.id]).forEach(ex => {
-    const el = document.getElementById('filethumb-' + ex.id);
-    if (!el) return;
-    tryLoadFileImage(ex.id, url => {
-      el.outerHTML = `<img class="ex-img-thumb" src="${url}" alt="${esc(ex.name)}">`;
-    });
-  });
 }
 
 // ============================================================
@@ -362,111 +307,7 @@ function removeAllExercises() {
 }
 
 function saveExercises() {
-  localStorage.setItem('csv_exercises', JSON.stringify(exercises));
-  CSVProvider._exercises = exercises;
-}
-
-// ============================================================
-// IMPORT / EXPORT DIALOGS
-// ============================================================
-function showImportHelp() {
-  const csvExample = `id;name;description;mode;tools;muscleGroup;hasWeight
-1;Liegestütze;Arme schulterbreit;no_switch;;Brust;0
-2;Ausfallschritt;Links/rechts wechseln;switch_per_exercise;;Beine;0
-3;Einbeiniges Kreuzheben;;switch_per_station;Kettlebell;Beine;1
-4;Schulterdrücken;;no_switch;Kettlebell;Schulter;1`;
-
-  const td = 'padding:4px 8px;border:1px solid var(--border)';
-  const th = td + ';font-weight:600;background:var(--bg)';
-
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.innerHTML = `
-    <div class="confirm-box" style="max-width:480px;max-height:80vh;overflow-y:auto">
-      <p style="font-weight:600;margin-bottom:12px;font-size:16px">CSV-Import Format</p>
-      <p style="font-size:13px;margin-bottom:8px">Erste Zeile = Header, danach eine Zeile pro Übung:</p>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
-        <tr><th style="${th}">Spalte</th><th style="${th}">Typ</th><th style="${th}">Beschreibung</th></tr>
-        <tr><td style="${td}">id</td><td style="${td}">Zahl</td><td style="${td}">Eindeutige Nummer</td></tr>
-        <tr><td style="${td}">name</td><td style="${td}">Text</td><td style="${td}">Name der Übung *</td></tr>
-        <tr><td style="${td}">description</td><td style="${td}">Text</td><td style="${td}">Beschreibung (optional)</td></tr>
-        <tr><td style="${td}">mode</td><td style="${td}"><code style="font-size:11px">no_switch</code><br><code style="font-size:11px">switch_per_exercise</code><br><code style="font-size:11px">switch_per_station</code></td><td style="${td}">Kein Wechsel / Seitenwechsel pro Übung (halbe Zeit) / Seitenwechsel pro Station (belegt beide Slots)</td></tr>
-        <tr><td style="${td}">tools</td><td style="${td}">Text</td><td style="${td}">Gerät (z.B. Kettlebell)</td></tr>
-        <tr><td style="${td}">muscleGroup</td><td style="${td}">Text</td><td style="${td}">Muskelgruppe (z.B. Schulter)</td></tr>
-        <tr><td style="${td}">hasWeight</td><td style="${td}"><code style="font-size:11px">0</code> / <code style="font-size:11px">1</code></td><td style="${td}">Gewicht tracken (1 = ja, 0 = nein, optional)</td></tr>
-      </table>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <p style="font-size:13px;font-weight:600">Beispiel:</p>
-        <button class="btn btn-outline btn-sm" id="copyBtn">Kopieren</button>
-      </div>
-      <pre style="font-size:11px;background:var(--bg);padding:8px;margin-bottom:12px;border-radius:6px;overflow-x:auto;border:1px solid var(--border);white-space:pre-wrap">${csvExample}</pre>
-      <p style="font-size:13px;margin-bottom:12px;padding:8px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">💡 Die CSV-Datei lässt sich einfach in <strong>Excel</strong> oder <strong>Google Sheets</strong> bearbeiten — einfach öffnen, Zeilen hinzufügen ((Daten → Text in Spalten → Delimiter: Komma), bearbeiten, und wieder als CSV speichern/exportieren.</p>
-      <p style="font-size:13px;margin-top:12px;margin-bottom:4px;font-weight:600">Bilder:</p>
-      <p style="font-size:13px;margin-bottom:12px">Bilddateien nach ID benennen: <code style="background:var(--bg);padding:2px 5px;border-radius:3px;font-size:12px">1.jpg</code>, <code style="background:var(--bg);padding:2px 5px;border-radius:3px;font-size:12px">2.png</code> usw. Beim Import Ordner wählen, um CSV und Bilder in einem Schritt zu laden.</p>
-      <button class="btn btn-primary btn-sm" id="helpClose" style="width:100%">Schließen</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.querySelector('#helpClose').onclick = () => overlay.remove();
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-  overlay.querySelector('#copyBtn').onclick = () => {
-    navigator.clipboard.writeText(csvExample).then(() => {
-      const btn = overlay.querySelector('#copyBtn');
-      btn.textContent = 'Kopiert!';
-      setTimeout(() => { btn.textContent = 'Kopieren'; }, 2000);
-    });
-  };
-}
-
-function showImportDialog() {
-  showChoiceDialog('Importieren', [
-    { label: 'Dateien auswählen (CSV + Bilder)', action: () => document.getElementById('csvFileInput').click() },
-    { label: 'Ordner wählen', action: () => document.getElementById('folderInput').click() },
-  ]);
-}
-
-function showExportDialog() {
-  showChoiceDialog('Exportieren als', [
-    { label: 'CSV exportieren', action: exportCSV },
-    { label: 'ZIP exportieren (mit Bildern)', action: exportZIP },
-  ]);
-}
-
-// ============================================================
-// CSV / ZIP EXPORT
-// ============================================================
-function exportCSV() {
-  const csv = buildCSVString();
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'exercises.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function exportZIP() {
-  const files = [];
-
-  const csvStr = buildCSVString();
-  files.push({ name: 'exercises.csv', data: new TextEncoder().encode(csvStr) });
-
-  const imgMap = await ImageStore.getAll();
-  for (const [id, dataUrl] of Object.entries(imgMap)) {
-    if (!dataUrl) continue;
-    const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-    files.push({ name: id + '.' + ext, data: dataUrlToUint8Array(dataUrl) });
-  }
-
-  const zipData = createZip(files);
-  const blob = new Blob([zipData], { type: 'application/zip' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'training.zip';
-  a.click();
-  URL.revokeObjectURL(url);
+  ExerciseStore.saveExercises(exercises);
 }
 
 // ============================================================
@@ -502,12 +343,24 @@ function resetFormImage() {
 }
 
 // ============================================================
-// INIT — restore from localStorage
+// INIT — load the user's data from the server
 // ============================================================
 (async function init() {
-  await ImageStore.open();
-
-  exercises = CSVProvider.getExercises();
+  let saved;
+  try {
+    [exercises, saved] = await Promise.all([
+      ExerciseStore.load(),
+      ExerciseStore.loadWorkout(),
+      ImageStore.load(),
+      WeightStore.load(),
+      loadHistory(),
+      loadFavourites()
+    ]);
+  } catch (e) {
+    console.error(e);
+    alert('Daten konnten nicht vom Server geladen werden. Bitte Seite neu laden.');
+    return;
+  }
 
   // Migrate old German mode values to English identifiers
   let migrated = false;
@@ -523,7 +376,6 @@ function resetFormImage() {
     enableNav();
   }
 
-  const saved = CSVProvider.loadWorkout();
   if (saved) {
     plan = saved.plan || [];
     if (saved.settings) {

@@ -6,21 +6,29 @@ Keep your replies extremely concise and focus on conveying the key information. 
 
 ## What this app is
 
-A **vanilla JS single-page app** (no framework, no build step, no backend) for planning and running circuit workouts. UI is in **German**. No authentication, no database — all persistence is client-side only.
+A **vanilla JS single-page app** (no framework, no build step) for planning and running circuit workouts. UI is in **German**. A tiny dependency-free Node server (`server.js`) serves the static files and a per-user JSON API.
 
-Run by opening `index.html` directly in a browser.
+Live at https://pump.koemerle.ch behind a shared login (Traefik). The server trusts the **`X-Auth-User`** header set by Traefik; it never handles login itself.
+
+Run locally: `DEV_USER=joel PORT=8080 node server.js` → http://localhost:8080 (data goes to `./data/`). Opening `index.html` as a file no longer works.
+
+Deploy: push to `main` → Coolify builds `Dockerfile` (Node, port 80). Data volume at `/app/data`.
 
 ## File map
 
 | File | Role |
 |------|------|
+| `server.js` | Static files + JSON API, per-user storage |
+| `api.js` | Frontend fetch helpers (`Api`, `apiSave`) |
 | `index.html` | DOM, forms, nav |
 | `app.js` | App init, exercise CRUD, import/export, nav |
 | `planner.js` | Station/slot layout, drag & drop, print |
 | `training.js` | Timer loop, audio cues, wake lock |
-| `data.js` | CSV parsing, IndexedDB image store |
+| `data.js` | Server-backed stores: `ExerciseStore`, `ImageStore`, `WeightStore` |
 | `utils.js` | Colors, badges, filter helpers, ZIP builder |
-| `favourites.js` | Save/load workout templates as CSV |
+| `favourites.js` | Workout templates (server) |
+| `history.js` | Training log + weight stats (server) |
+| `backup.js` | All file import/export (CSV, ZIP) + "Daten" screen |
 | `style.css` | All styling |
 
 ## Three main screens
@@ -59,17 +67,22 @@ Run by opening `index.html` directly in a browser.
 
 `canPlaceAt()` in `planner.js` enforces placement rules (e.g. can't mix a `switch_per_station` exercise with another exercise in the same station).
 
-## Persistence layers
+## Persistence (server, per user)
 
-| Layer | What | Key/Store |
-|-------|------|-----------|
-| `localStorage` | `exercises[]` as JSON | `'csv_exercises'` |
-| `localStorage` | current plan + settings | `'workout_plan'` |
-| `IndexedDB` (`TrainingImages`) | exercise images as base64 data URLs | store `images`, keyed by exercise ID |
-| File download | CSV or ZIP export | via Blob + `<a>` click |
-| File System Access API | favourites CSV (with download fallback) | user-chosen file |
+Files under `DATA_DIR/<user>/` (`/app/data` in the container), written atomically (temp + rename):
 
-Images are resized to max 800px and compressed as JPEG 0.85 before storage.
+| File | API | Content |
+|------|-----|---------|
+| `exercises.json` | `GET/PUT api/exercises` | `exercises[]` |
+| `workout.json` | `GET/PUT api/workout` | `{ plan, settings }` |
+| `favourites.json` | `GET/PUT api/favourites` | `[{ name, plan }]` |
+| `history.json` | `GET/PUT api/history`, `POST api/history/append` | flat session rows |
+| `weights.json` | `GET/PUT api/weights`, `POST api/weights/append` | `[{ exerciseId, weightKg, date }]` |
+| `images/{id}.jpg` | `GET/PUT/DELETE api/images/{id}`, `GET api/images` → `{id: mtime}` | JPEG |
+
+Frontend loads everything once at init and keeps it in memory; saves are PUT/POST (`queuedPut` coalesces rapid saves in order). Last write wins across devices.
+Images are resized to max 800px and compressed as JPEG 0.85 before upload.
+File import/export (CSV/ZIP) lives only in `backup.js` and the "Daten" screen (nav icon); the other screens don't touch files.
 
 ## CSV format (semicolon-delimited)
 
@@ -101,7 +114,5 @@ Legacy German strings in imported CSV are normalised by `normalizeMode()` in `da
 
 ## Constraints / non-goals
 
-- No user accounts, authentication, or server-side storage — intentionally.
-- No external JS libraries or build tools.
-- Everything must work offline from a local file.
-- Adding a backend/DB is explicitly out of scope for now.
+- No login/accounts in the app itself — authentication is done by the platform (Traefik), user from `X-Auth-User`.
+- No external JS libraries, no npm dependencies, no build tools.

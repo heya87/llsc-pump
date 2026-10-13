@@ -25,275 +25,111 @@ const DataSource = {
 };
 
 // ============================================================
-// CSV PROVIDER
+// EXERCISE STORE (server: api/exercises, api/workout)
 // ============================================================
-const CSVProvider = {
+const ExerciseStore = {
   _exercises: [],
 
-  parseCSV(text) {
-    const lines = this._splitCSVRows(text);
-    if (lines.length < 2) return [];
-
-    const headers = this._parseLine(lines[0]).map(h => h.trim().toLowerCase());
-
-    const exercises = [];
-    const seenIds = new Set();
-    const duplicateIds = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = this._parseLine(lines[i]);
-      const num = parseInt(cols[0], 10);
-      const name = (cols[1] || '').trim();
-      if (!name) continue;
-
-      const id = num || i;
-      if (seenIds.has(id)) {
-        duplicateIds.push(id);
-        continue;
-      }
-      seenIds.add(id);
-
-      exercises.push({
-        id,
-        name: name,
-        description: (cols[2] || '').trim(),
-        mode: normalizeMode((cols[3] || '').trim()),
-        tools: (cols[4] || '').trim(),
-        muscleGroup: (cols[5] || '').trim(),
-        hasWeight: (cols[6] || '').trim() === '1',
-        image: null
-      });
-    }
-    if (duplicateIds.length > 0) {
-      alert('Doppelte IDs in CSV übersprungen: ' + duplicateIds.join(', '));
-    }
-    return exercises;
-  },
-
-  // Split CSV text into logical rows, respecting quoted fields that span multiple lines
-  _splitCSVRows(text) {
-    const rows = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (ch === '"') {
-        if (inQuotes && i + 1 < text.length && text[i + 1] === '"') {
-          current += '""';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-          current += ch;
-        }
-      } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
-        if (ch === '\r' && text[i + 1] === '\n') i++; // skip \r in \r\n
-        const row = current.trim();
-        if (row) rows.push(row);
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    if (current.trim()) rows.push(current.trim());
-    return rows;
-  },
-
-  _parseLine(line, delimiter = ';') {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-          current += '"';
-          i++; // skip escaped quote
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (ch === delimiter && !inQuotes) {
-        result.push(current);
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    result.push(current);
-    return result;
-  },
-
-  loadFromText(text) {
-    this._exercises = this.parseCSV(text);
-    localStorage.setItem('csv_exercises', JSON.stringify(this._exercises));
+  async load() {
+    this._exercises = await Api.get('exercises');
     return this._exercises;
   },
 
   getExercises() {
-    if (this._exercises.length === 0) {
-      const stored = localStorage.getItem('csv_exercises');
-      if (stored) this._exercises = JSON.parse(stored);
-    }
     return this._exercises;
   },
 
+  saveExercises(list) {
+    this._exercises = list;
+    queuedPut('exercises', list);
+  },
+
   saveWorkout(workout) {
-    localStorage.setItem('workout_plan', JSON.stringify(workout));
+    queuedPut('workout', workout);
   },
 
   loadWorkout() {
-    const stored = localStorage.getItem('workout_plan');
-    return stored ? JSON.parse(stored) : null;
+    return Api.get('workout');
   }
 };
 
-DataSource.setProvider(CSVProvider);
-
-// ============================================================
-// CSV EXPORT — proper escaping for all fields
-// ============================================================
-function _csvEscape(val, delimiter = ';') {
-  if (!val) return '';
-  if (val.includes(delimiter) || val.includes('"') || val.includes('\n')) {
-    return '"' + val.replace(/"/g, '""') + '"';
-  }
-  return val;
+// Coalesce rapid saves of the same document and send them in order,
+// so a slow older request can't overwrite a newer one.
+const _putQueue = {};
+function queuedPut(name, value) {
+  const q = _putQueue[name] || (_putQueue[name] = { pending: undefined, running: null });
+  q.pending = value;
+  if (q.running) return q.running;
+  q.running = (async () => {
+    while (q.pending !== undefined) {
+      const v = q.pending;
+      q.pending = undefined;
+      await apiSave(Api.put(name, v)).catch(() => {});
+    }
+    q.running = null;
+  })();
+  return q.running;
 }
 
-function buildCSVString() {
-  const header = 'id;name;description;mode;tools;muscleGroup;hasWeight';
-  const rows = exercises.map(ex =>
-    [ex.id, _csvEscape(ex.name), _csvEscape(ex.description), _csvEscape(ex.mode), _csvEscape(ex.tools), _csvEscape(ex.muscleGroup), ex.hasWeight ? '1' : '0'].join(';')
-  );
-  return [header, ...rows].join('\n');
-}
+DataSource.setProvider(ExerciseStore);
 
 // ============================================================
-// IMAGE STORE (IndexedDB)
+// IMAGE STORE (server: api/images/{id}, JPEG files)
 // ============================================================
 const ImageStore = {
-  _db: null,
-  _cache: {},
+  _versions: {}, // { id: version } for ids that have an image
 
-  open() {
-    return new Promise((resolve, reject) => {
-      if (this._db) { resolve(this._db); return; }
-      const req = indexedDB.open('TrainingImages', 1);
-      req.onupgradeneeded = e => { e.target.result.createObjectStore('images', { keyPath: 'id' }); };
-      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
-      req.onerror = e => reject(e);
-    });
+  async load() {
+    this._versions = await Api.get('images');
+  },
+
+  // Absolute URL so it also works in the print window (about:blank)
+  _url(id) {
+    return new URL(`api/images/${id}?v=${this._versions[id]}`, location.href).href;
   },
 
   async save(id, dataUrl) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('images', 'readwrite');
-      tx.objectStore('images').put({ id, dataUrl });
-      tx.oncomplete = () => { this._cache[id] = dataUrl; resolve(); };
-      tx.onerror = e => reject(e);
-    });
+    const blob = new Blob([dataUrlToUint8Array(dataUrl)], { type: 'image/jpeg' });
+    await apiSave(Api.putBlob('images/' + id, blob));
+    this._versions[id] = Date.now();
   },
 
   async get(id) {
-    if (this._cache[id] !== undefined) return this._cache[id];
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('images', 'readonly');
-      const req = tx.objectStore('images').get(id);
-      req.onsuccess = () => {
-        const val = req.result ? req.result.dataUrl : null;
-        this._cache[id] = val;
-        resolve(val);
-      };
-      req.onerror = e => reject(e);
-    });
+    return this._versions[id] ? this._url(id) : null;
   },
 
   async remove(id) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('images', 'readwrite');
-      tx.objectStore('images').delete(id);
-      tx.oncomplete = () => { delete this._cache[id]; resolve(); };
-      tx.onerror = e => reject(e);
-    });
+    if (!this._versions[id]) return;
+    delete this._versions[id];
+    await apiSave(Api.del('images/' + id));
   },
 
   async getAll() {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('images', 'readonly');
-      const req = tx.objectStore('images').getAll();
-      req.onsuccess = () => {
-        const map = {};
-        for (const r of req.result) { map[r.id] = r.dataUrl; this._cache[r.id] = r.dataUrl; }
-        resolve(map);
-      };
-      req.onerror = e => reject(e);
-    });
+    const map = {};
+    for (const id of Object.keys(this._versions)) map[id] = this._url(id);
+    return map;
+  },
+
+  async getBytes(id) {
+    const resp = await fetch(this._url(id));
+    return resp.ok ? new Uint8Array(await resp.arrayBuffer()) : null;
   }
 };
 
 // ============================================================
-// META STORE (IndexedDB) — for File System Access handles etc.
-// ============================================================
-const MetaStore = {
-  _db: null,
-  _open() {
-    if (this._db) return Promise.resolve(this._db);
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('llsc_meta', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('meta');
-      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
-      req.onerror = () => reject(req.error);
-    });
-  },
-  async get(key) {
-    const db = await this._open();
-    return new Promise(resolve => {
-      const req = db.transaction('meta').objectStore('meta').get(key);
-      req.onsuccess = () => resolve(req.result ?? null);
-      req.onerror = () => resolve(null);
-    });
-  },
-  async set(key, value) {
-    const db = await this._open();
-    return new Promise(resolve => {
-      const tx = db.transaction('meta', 'readwrite');
-      value === null ? tx.objectStore('meta').delete(key) : tx.objectStore('meta').put(value, key);
-      tx.oncomplete = resolve;
-      tx.onerror = () => resolve();
-    });
-  }
-};
-
-// ============================================================
-// WEIGHT LOG STORE (IndexedDB)
+// WEIGHT LOG STORE (server: api/weights, kept in memory)
 // ============================================================
 const WeightStore = {
-  _db: null,
+  _log: [], // [{ exerciseId, weightKg, date }] in chronological order
 
-  open() {
-    if (this._db) return Promise.resolve(this._db);
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('llsc_weights', 1);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        const store = db.createObjectStore('weightLog', { keyPath: 'id', autoIncrement: true });
-        store.createIndex('exerciseId', 'exerciseId', { unique: false });
-      };
-      req.onsuccess = e => { this._db = e.target.result; resolve(this._db); };
-      req.onerror = e => reject(e);
-    });
+  async load() {
+    this._log = await Api.get('weights');
   },
 
   async save(exerciseId, weightKg) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('weightLog', 'readwrite');
-      tx.objectStore('weightLog').add({ exerciseId, weightKg, date: new Date().toISOString() });
-      tx.oncomplete = resolve;
-      tx.onerror = e => reject(e);
-    });
+    const entry = { exerciseId, weightKg, date: new Date().toISOString() };
+    this._log.push(entry);
+    await apiSave(Api.post('weights/append', [entry]));
   },
 
   async getLatest(exerciseId) {
@@ -302,83 +138,29 @@ const WeightStore = {
   },
 
   async getLatestMap(exerciseIds) {
-    const db = await this.open();
     const result = {};
-    await Promise.all(exerciseIds.map(id => new Promise(resolve => {
-      const tx = db.transaction('weightLog', 'readonly');
-      const index = tx.objectStore('weightLog').index('exerciseId');
-      const req = index.getAll(id);
-      req.onsuccess = () => {
-        const entries = req.result;
-        if (entries.length > 0) result[id] = entries[entries.length - 1];
-        resolve();
-      };
-      req.onerror = () => resolve();
-    })));
+    for (const e of this._log) if (exerciseIds.includes(e.exerciseId)) result[e.exerciseId] = e;
     return result;
   },
 
   async getHistory(exerciseId) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('weightLog', 'readonly');
-      const req = tx.objectStore('weightLog').index('exerciseId').getAll(exerciseId);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = e => reject(e);
-    });
+    return this._log.filter(e => e.exerciseId === exerciseId);
   },
 
   async getAll() {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('weightLog', 'readonly');
-      const req = tx.objectStore('weightLog').getAll();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = e => reject(e);
-    });
+    return this._log.slice();
   },
 
   async deleteByExercise(exerciseId) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('weightLog', 'readwrite');
-      const req = tx.objectStore('weightLog').index('exerciseId').getAllKeys(exerciseId);
-      req.onsuccess = () => {
-        for (const key of req.result) tx.objectStore('weightLog').delete(key);
-        tx.oncomplete = resolve;
-      };
-      tx.onerror = e => reject(e);
-    });
+    this._log = this._log.filter(e => e.exerciseId !== exerciseId);
+    await apiSave(Api.put('weights', this._log));
   }
 };
 
 // Image helpers
 async function getExerciseImageUrl(id) {
-  const stored = await ImageStore.get(id);
-  if (stored) return stored;
-  for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
-    const url = id + '.' + ext;
-    try {
-      const resp = await fetch(url, { method: 'HEAD' });
-      if (resp.ok) return url;
-    } catch (e) { /* ignore */ }
-  }
-  return null;
+  return ImageStore.get(id);
 }
-
-function tryLoadFileImage(id, onSuccess) {
-  const exts = ['jpg', 'jpeg', 'png', 'webp'];
-  let i = 0;
-  function tryNext() {
-    if (i >= exts.length) return;
-    const img = new Image();
-    img.onload = () => onSuccess(img.src);
-    img.onerror = () => { i++; tryNext(); };
-    img.src = id + '.' + exts[i];
-  }
-  tryNext();
-}
-
 function resizeImage(file, maxSize) {
   return new Promise(resolve => {
     const reader = new FileReader();

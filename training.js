@@ -439,7 +439,7 @@ async function startTraining() {
           <div class="training-finished">
             <h2>Geschafft!</h2>
             <p style="color:var(--text-light);margin-bottom:20px">Training abgeschlossen.</p>
-            <button class="btn btn-success" style="margin-bottom:8px" onclick="saveTrainingHistory(_lastTrainingPhases)">Training speichern</button>
+            <button class="btn btn-success" style="margin-bottom:8px" onclick="saveTrainingHistory(_lastTrainingPhases, this)">Training speichern</button>
             <button class="btn btn-primary" onclick="renderTrainingSetup()">Zurück</button>
           </div>
         `;

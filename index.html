@@ -16,23 +16,16 @@
   <button id="navPlanner" disabled onclick="showScreen('planner')">Setup</button>
   <button id="navTraining" disabled onclick="showScreen('training')">Training</button>
   <button id="navStats" onclick="showScreen('stats')">Statistik</button>
+  <button id="navData" class="nav-icon" onclick="showScreen('data')" title="Daten importieren / exportieren" aria-label="Daten">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+  </button>
 </nav>
 
 <!-- ==================== IMPORT ==================== -->
 <div id="screen-import" class="screen active">
   <h2 style="margin-bottom:12px;">Übungen</h2>
 
-  <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="openExerciseForm()">Neue Übung</button>
-  <div style="display:flex;justify-content:flex-end;align-items:flex-start;gap:6px;margin-bottom:16px">
-    <button class="btn-icon" onclick="showImportHelp()" title="Hilfe zum CSV-Import">i</button>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <button class="btn btn-outline btn-sm" style="padding-left:20px;padding-right:20px" onclick="showImportDialog()">Importieren</button>
-      <button class="btn btn-outline btn-sm" id="actionRow" style="display:none;padding-left:20px;padding-right:20px" onclick="showExportDialog()">Exportieren</button>
-    </div>
-  </div>
-
-  <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp" style="display:none">
-  <input type="file" id="folderInput" webkitdirectory style="display:none">
+  <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openExerciseForm()">Neue Übung</button>
 
   <div id="importFilterSection" style="display:none">
     <div id="importFilterChips"></div>
@@ -164,8 +157,8 @@
         <div class="planner-col-stations">
           <div style="display:flex;gap:6px;margin-bottom:8px">
             <button class="btn btn-outline btn-sm" onclick="clearPlan()">Stationen zurücksetzen</button>
-            <button class="btn btn-outline btn-sm" onclick="saveFavouriteToFile()">Als Favorit speichern</button>
-            <button class="btn btn-outline btn-sm" onclick="loadFavouriteFromFile()">Favorit laden</button>
+            <button class="btn btn-outline btn-sm" onclick="saveFavourite()">Als Favorit speichern</button>
+            <button class="btn btn-outline btn-sm" onclick="openFavourites()">Favoriten</button>
           </div>
           <div class="stops-grid" id="stopsGrid"></div>
         </div>
@@ -183,6 +176,46 @@
 <div id="screen-stats" class="screen screen-stats">
   <h2 style="margin-bottom:16px">Statistik</h2>
   <div id="historyContent"></div>
+</div>
+
+<!-- ==================== DATEN (import/export) ==================== -->
+<div id="screen-data" class="screen">
+  <h2 style="margin-bottom:6px">Daten</h2>
+  <p class="data-intro">Im Alltag wird alles automatisch gespeichert. Hier kannst du Dateien importieren und exportieren, z.B. als Backup.</p>
+
+  <section class="data-section">
+    <div class="data-section-head">
+      <h3>Übungen</h3>
+      <button class="btn-icon" onclick="showImportHelp()" title="Hilfe zum CSV-Import">i</button>
+    </div>
+    <p class="data-hint">Eine CSV ersetzt alle bestehenden Übungen. Bilder heissen nach der Übungs-ID (z.B. 3.jpg).</p>
+    <div class="data-btns">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('csvFileInput').click()">Dateien importieren</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('folderInput').click()">Ordner importieren</button>
+      <button class="btn btn-outline btn-sm" onclick="exportExercisesCSV()">CSV exportieren</button>
+      <button class="btn btn-outline btn-sm" onclick="exportExercisesZIP()">ZIP exportieren (mit Bildern)</button>
+    </div>
+    <input type="file" id="csvFileInput" multiple accept=".csv,.jpg,.jpeg,.png,.webp" style="display:none">
+    <input type="file" id="folderInput" webkitdirectory style="display:none">
+  </section>
+
+  <section class="data-section">
+    <div class="data-section-head"><h3>Favoriten</h3></div>
+    <p class="data-hint">Favoriten mit gleichem Namen werden ersetzt.</p>
+    <div class="data-btns">
+      <button class="btn btn-outline btn-sm" onclick="importFavouritesCSV()">CSV importieren</button>
+      <button class="btn btn-outline btn-sm" onclick="exportFavouritesCSV()">CSV exportieren</button>
+    </div>
+  </section>
+
+  <section class="data-section">
+    <div class="data-section-head"><h3>Trainingsverlauf</h3></div>
+    <p class="data-hint">Bereits vorhandene Einträge werden übersprungen.</p>
+    <div class="data-btns">
+      <button class="btn btn-outline btn-sm" onclick="importHistoryCSV()">CSV importieren</button>
+      <button class="btn btn-outline btn-sm" onclick="exportHistoryCSV()">CSV exportieren</button>
+    </div>
+  </section>
 </div>
 
 <div id="mobilePicker" class="mobile-picker">
@@ -209,11 +242,13 @@
 </div>
 
 <script src="utils.js"></script>
+<script src="api.js"></script>
 <script src="data.js"></script>
 <script src="planner.js"></script>
 <script src="training.js"></script>
 <script src="favourites.js"></script>
 <script src="history.js"></script>
+<script src="backup.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

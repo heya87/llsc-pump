@@ -1,48 +1,11 @@
 // ============================================================
-// FAVOURITES — saved workout plans (CSV-only, no localStorage)
+// FAVOURITES — saved workout plans (server: api/favourites; CSV in backup.js)
 // ============================================================
 
-// Temp storage for the currently-displayed load modal
+// All favourites of the user: [{ name, plan: [{ stop, slot, exerciseId, exerciseName }] }]
+let _favourites = [];
+// Favourites shown in the currently-displayed load modal
 let _loadedFavs = [];
-
-// ---- CSV serialise ----
-function _favouritesToCSV(favs) {
-  const rows = ['name,station,slot,exercise_id,exercise_name'];
-  for (const fav of favs) {
-    for (const e of fav.plan) {
-      rows.push([
-        _csvEscape(fav.name, ','),
-        e.stop + 1,
-        e.slot + 1,
-        e.exerciseId,
-        _csvEscape(e.exerciseName, ',')
-      ].join(','));
-    }
-  }
-  return rows.join('\n');
-}
-
-// ---- CSV parse ----
-function _parseFavouritesCSV(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) return [];
-  const delimiter = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
-  const byName = {};
-  for (let i = 1; i < lines.length; i++) {
-    const cols = CSVProvider._parseLine(lines[i], delimiter);
-    if (cols.length < 5) continue;
-    const name = cols[0].trim();
-    if (!name) continue;
-    const stop = parseInt(cols[1], 10) - 1;
-    const slot = parseInt(cols[2], 10) - 1;
-    const exerciseId = parseInt(cols[3], 10);
-    const exerciseName = cols[4].trim();
-    if (isNaN(stop) || isNaN(slot) || isNaN(exerciseId)) continue;
-    if (!byName[name]) byName[name] = { name, plan: [] };
-    byName[name].plan.push({ stop, slot, exerciseId, exerciseName });
-  }
-  return Object.values(byName);
-}
 
 // ---- Build plan entries for current plan ----
 function _currentPlanEntries() {
@@ -52,8 +15,17 @@ function _currentPlanEntries() {
   });
 }
 
-// ---- Save current plan to CSV file ----
-async function saveFavouriteToFile() {
+// ---- Load all favourites from the server ----
+async function loadFavourites() {
+  _favourites = await Api.get('favourites');
+}
+
+function _saveFavourites() {
+  return queuedPut('favourites', _favourites);
+}
+
+// ---- Save current plan as favourite (same name replaces) ----
+async function saveFavourite() {
   readSettings();
   if (plan.length === 0) { alert('Kein Workout geplant.'); return; }
 
@@ -61,72 +33,15 @@ async function saveFavouriteToFile() {
   if (!name) return;
 
   const planEntries = _currentPlanEntries();
-
-  if ('showOpenFilePicker' in window) {
-    const useExisting = await _promptFileChoice();
-    if (useExisting === null) return; // cancelled
-    try {
-      let handle;
-      if (useExisting) {
-        [handle] = await window.showOpenFilePicker({
-          types: [{ description: 'CSV-Datei', accept: { 'text/csv': ['.csv'] } }]
-        });
-        // Upgrade to readwrite
-        await handle.requestPermission({ mode: 'readwrite' });
-      } else {
-        handle = await window.showSaveFilePicker({
-          suggestedName: 'llsc-favourites.csv',
-          types: [{ description: 'CSV-Datei', accept: { 'text/csv': ['.csv'] } }]
-        });
-      }
-      const file = await handle.getFile();
-      const existingText = await file.text();
-      const favs = _parseFavouritesCSV(existingText);
-
-      const idx = favs.findIndex(f => f.name === name);
-      if (idx >= 0) favs[idx].plan = planEntries;
-      else favs.push({ name, plan: planEntries });
-
-      const w = await handle.createWritable();
-      await w.write(_favouritesToCSV(favs));
-      await w.close();
-    } catch(e) {
-      if (e.name !== 'AbortError') alert('Speichern fehlgeschlagen.');
-    }
-  } else {
-    // Fallback: download a new CSV with just this entry
-    const csv = _favouritesToCSV([{ name, plan: planEntries }]);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(blob),
-      download: 'llsc-favourites.csv'
-    }).click();
-  }
+  const idx = _favourites.findIndex(f => f.name === name);
+  const doSave = () => {
+    if (idx >= 0) _favourites[idx].plan = planEntries;
+    else _favourites.push({ name, plan: planEntries });
+    _saveFavourites();
+  };
+  if (idx >= 0) showConfirm(`Favorit "${name}" überschreiben?`, doSave, () => {}, 'Überschreiben');
+  else doSave();
 }
-
-// ---- File choice dialog (existing vs new) ----
-// Returns true = existing, false = new, null = cancelled
-function _promptFileChoice() {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.innerHTML = `
-      <div class="confirm-box">
-        <p style="font-weight:700;font-size:16px;margin-bottom:12px">In welche Datei speichern?</p>
-        <div class="confirm-btns" style="flex-direction:column;align-items:stretch">
-          <button class="btn btn-success" id="favFileExisting">Bestehende Datei erweitern</button>
-          <button class="btn btn-outline" id="favFileNew">Neue Datei erstellen</button>
-          <button class="btn btn-outline" id="favFileCancel">Abbrechen</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#favFileExisting').onclick = () => { overlay.remove(); resolve(true); };
-    overlay.querySelector('#favFileNew').onclick     = () => { overlay.remove(); resolve(false); };
-    overlay.querySelector('#favFileCancel').onclick  = () => { overlay.remove(); resolve(null); };
-  });
-}
-
 // ---- Name prompt dialog ----
 function _promptFavouriteName() {
   return new Promise(resolve => {
@@ -157,18 +72,19 @@ function _promptFavouriteName() {
   });
 }
 
-// ---- Load favourites from CSV file ----
-function loadFavouriteFromFile() {
-  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.csv' });
-  input.onchange = async () => {
-    const file = input.files[0];
-    if (!file) return;
-    const text = await file.text();
-    const favs = _parseFavouritesCSV(text);
-    if (!favs.length) { alert('Keine Workouts in der Datei gefunden.'); return; }
-    _showLoadModal(favs);
-  };
-  input.click();
+// ---- Favourites modal ----
+function openFavourites() {
+  _showLoadModal(_favourites);
+}
+
+function deleteFavourite(idx) {
+  const fav = _favourites[idx];
+  if (!fav) return;
+  showConfirm(`Favorit "${fav.name}" löschen?`, () => {
+    _favourites.splice(idx, 1);
+    _saveFavourites();
+    openFavourites();
+  }, () => {});
 }
 
 // ---- Load modal ----
@@ -182,7 +98,7 @@ function _showLoadModal(favs) {
   overlay.innerHTML = `
     <div class="confirm-box fav-modal-box">
       <div class="fav-modal-header">
-        <span style="font-weight:700;font-size:16px">Favorit laden</span>
+        <span style="font-weight:700;font-size:16px">Favoriten</span>
         <button class="form-close-btn" onclick="document.getElementById('favLoadModal').remove()">&times;</button>
       </div>
       <div class="fav-modal-list">
@@ -190,8 +106,9 @@ function _showLoadModal(favs) {
           <div class="fav-item">
             <span class="fav-name">${esc(f.name)}</span>
             <button class="btn btn-outline btn-sm" onclick="showFavouritePreview(${i})">Ansehen</button>
+            <button class="ex-remove" onclick="deleteFavourite(${i})" title="Löschen">&times;</button>
           </div>
-        `).join('')}
+        `).join('') || '<p class="fav-empty">Noch keine Favoriten gespeichert.</p>'}
       </div>
     </div>
   `;
