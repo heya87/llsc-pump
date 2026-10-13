@@ -26,9 +26,10 @@ function _favouritesToCSV(favs) {
 function _parseFavouritesCSV(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];
+  const delimiter = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
   const byName = {};
   for (let i = 1; i < lines.length; i++) {
-    const cols = CSVProvider._parseLine(lines[i], ',');
+    const cols = CSVProvider._parseLine(lines[i], delimiter);
     if (cols.length < 5) continue;
     const name = cols[0].trim();
     if (!name) continue;
